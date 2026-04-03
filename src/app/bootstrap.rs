@@ -297,8 +297,8 @@ mod tests {
     fn bootstrap_scans_skills() {
         let dir = tempfile::tempdir().unwrap();
         let workspace_root = dir.path().to_path_buf();
-        let asky_dir = workspace_root.join(".asky");
-        std::fs::create_dir_all(&asky_dir).unwrap();
+        let agk_dir = workspace_root.join(".agk");
+        std::fs::create_dir_all(&agk_dir).unwrap();
         let global_dir = dir.path().join("global");
         std::fs::create_dir_all(&global_dir).unwrap();
         let config_content = format!(
@@ -316,7 +316,7 @@ path = "{}"
         make_skill(dir.path(), "alpha");
         make_skill(dir.path(), "beta");
         let store =
-            TomlConfigStore::new(global_dir.join("config.toml"), asky_dir.join("config.toml"));
+            TomlConfigStore::new(global_dir.join("config.toml"), agk_dir.join("config.toml"));
         let (_, scan, _store) = build_with_store(workspace_root, store).unwrap();
         let ws_skills = scan.packages_by_tab[0]
             .iter()
@@ -336,8 +336,8 @@ path = "{}"
     fn bootstrap_scans_instructions() {
         let dir = tempfile::tempdir().unwrap();
         let workspace_root = dir.path().to_path_buf();
-        let asky_dir = workspace_root.join(".asky");
-        std::fs::create_dir_all(&asky_dir).unwrap();
+        let agk_dir = workspace_root.join(".agk");
+        std::fs::create_dir_all(&agk_dir).unwrap();
         let global_dir = dir.path().join("global");
         std::fs::create_dir_all(&global_dir).unwrap();
         let config_content = format!(
@@ -356,7 +356,7 @@ path = "{}"
         std::fs::create_dir_all(&inst_dir).unwrap();
         std::fs::write(inst_dir.join("AGENTS.md"), "# My Instruction").unwrap();
         let store =
-            TomlConfigStore::new(global_dir.join("config.toml"), asky_dir.join("config.toml"));
+            TomlConfigStore::new(global_dir.join("config.toml"), agk_dir.join("config.toml"));
         let (_, scan, _store) = build_with_store(workspace_root, store).unwrap();
         // Instructions is tab index 1
         let ws_insts: Vec<_> = scan.packages_by_tab[1]

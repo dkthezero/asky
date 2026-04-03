@@ -1,17 +1,17 @@
 [package]
-name = "asky"
+name = "agk"
 version = "0.1.0"
 edition = "2021"
 authors = ["dkthezero"]
 description = "A terminal-based vault management tool"
-repository = "https://github.com/dkthezero/asky"
+repository = "https://github.com/dkthezero/agk"
 license = "MIT"
 keywords = ["cli", "vault", "tui"]
 categories = ["command-line-utilities"]
 readme = "README.md"
 
 [[bin]]
-name = "asky"
+name = "agk"
 path = "src/main.rs"
 
 [dependencies]

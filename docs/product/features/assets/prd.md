@@ -1,14 +1,14 @@
 # PRD: Assets Management (Skills & Instructions)
 
 ## Overview
-Assets are the core manageable components within `asky` representing logical functionality units tailored exclusively for AI agent execution workflows. 
+Assets are the core manageable components within `agk` representing logical functionality units tailored exclusively for AI agent execution workflows. 
 
 Assets are structurally broken down into two distinct typings (AssetKinds):
 - **Skills:** Complex tools or module wrappers (typically containing adjacent helper scripts naturally alongside primary markdown endpoints). Used actively by frameworks to define dynamic logical abilities.
 - **Instructions:** Rule-sets or context endpoints defined natively as standalone files representing broader behavior instructions tailored uniquely per ecosystem mapping context. 
 
 ## Functional Requirements
-- **Track Installations Inherently by Origin Vault:** `asky` natively maps identically named functions spanning separately scoped external vault mappings without collision mappings explicitly resolving dynamically back into upstream vault boundaries.
+- **Track Installations Inherently by Origin Vault:** `agk` natively maps identically named functions spanning separately scoped external vault mappings without collision mappings explicitly resolving dynamically back into upstream vault boundaries.
 - **Support Duplicates:** Support identical tool package declarations natively across distinct configurations mapping explicitly separated logic layers logically mapped by the tripartite identity arrays inherently storing tools natively like `[web-browsing-tool:2.0.0:a13c9ef042]`. 
 - **Identify Differences Without Hard Version Types:** Utilize built-in `sha10` scanning mechanics globally comparing canonical structures mathematically preventing dependency issues reliant entirely on manual author version headers. Versioning acts actively as a visual metadata tag uniquely defining readability contexts independently. 
 - **Tab 1 & 2 UI Actions:**

@@ -19,8 +19,8 @@ trait VaultSource {
 }
 ```
 **Architecture Rules:**
-- `asky` delegates scanning packages entirely to the implementations wrapped beneath this structural hierarchy. 
-- Network-bound vaults explicitly mandate a `refresh()` abstraction point to synchronize the remote filesystem dynamically. This utilizes lightweight `git` sparse-checkout commands directed efficiently into the `vaults/` subdirectory within the global configuration root (`~/.config/asky/` on macOS/Linux, `%APPDATA%\asky\` on Windows).
+- `agk` delegates scanning packages entirely to the implementations wrapped beneath this structural hierarchy. 
+- Network-bound vaults explicitly mandate a `refresh()` abstraction point to synchronize the remote filesystem dynamically. This utilizes lightweight `git` sparse-checkout commands directed efficiently into the `vaults/` subdirectory within the global configuration root (`~/.config/agk/` on macOS/Linux, `%APPDATA%\agk\` on Windows).
 - Replaceable Backend: Local filesystem abstractions resolve cleanly, while GitHub nodes translate network layers into pure package outputs implicitly without bleeding standard protocol errors upwards into the presentation layers natively.
 
 ## Schema Implementations
@@ -59,7 +59,7 @@ To provide a granular configuration experience for remote vaults, the TUI implem
 Once finalized, the adapter immediately triggers an async `refresh()` to execute a sparse clone, followed by a global `TriggerReload` to populate the asset registry.
 
 ### Boot Execution Sequences
-When `asky` starts, the bootstrap loader resolves `config.toml`:
+When `agk` starts, the bootstrap loader resolves `config.toml`:
 1. Instantiates vault implementations natively registered through the configuration entries.
 2. Iterates vault scanning routines.
 3. Automatically computes `sha10` hashes (or fetches Git commit hashes for GitHub sources), identifying out-of-date records dynamically based purely on mathematical file tracking integrity constraints.

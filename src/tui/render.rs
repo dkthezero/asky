@@ -16,7 +16,7 @@ pub fn draw(frame: &mut Frame, state: &AppState) {
     } else {
         format!("  [ Search: {} ]", state.search_query)
     };
-    let header_text = format!("asky v0.1.0{}", search_hint);
+    let header_text = format!("agk v0.1.0{}", search_hint);
     frame.render_widget(
         Paragraph::new(Line::from(header_text)).style(
             Style::default()

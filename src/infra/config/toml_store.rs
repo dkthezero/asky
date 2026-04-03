@@ -19,11 +19,11 @@ impl TomlConfigStore {
         }
     }
 
-    /// Construct with standard locations: ~/.config/asky/config.toml (global)
-    /// and <workspace>/.asky/config.toml (workspace).
+    /// Construct with standard locations: ~/.config/agk/config.toml (global)
+    /// and <workspace>/.agk/config.toml (workspace).
     pub fn standard(workspace_root: &std::path::Path) -> Self {
         let global = crate::domain::paths::global_config_root().join("config.toml");
-        let workspace = workspace_root.join(".asky").join("config.toml");
+        let workspace = workspace_root.join(".agk").join("config.toml");
         Self::new(global, workspace)
     }
 

@@ -1,10 +1,10 @@
 # PRD: Terminal UX (TUI)
 
 ## Overview
-The `asky` Terminal UI acts as the unified user control layer handling explicit interactive visualization mapping strictly independent operational dependencies securely spanning isolated task pool executors natively ensuring smooth progressive feedback loops actively bypassing thread blocking logic independently.
+The `agk` Terminal UI acts as the unified user control layer handling explicit interactive visualization mapping strictly independent operational dependencies securely spanning isolated task pool executors natively ensuring smooth progressive feedback loops actively bypassing thread blocking logic independently.
 
 ## Functional Requirements
-- **Live Interactive Overlays:** `asky` encapsulates fully responsive interfaces dynamically spanning interactive keyboard commands uniquely mapping actions securely without manually dropping explicitly manually configured text editor files globally dynamically preventing context switching inherently minimizing logic seamlessly mapping actions transparently directly explicitly.
+- **Live Interactive Overlays:** `agk` encapsulates fully responsive interfaces dynamically spanning interactive keyboard commands uniquely mapping actions securely without manually dropping explicitly manually configured text editor files globally dynamically preventing context switching inherently minimizing logic seamlessly mapping actions transparently directly explicitly.
 - **Background Tasks Visualization:** Progress bars dynamically mapping visual updates natively mapping progress boundaries distinctly actively signaling explicitly long running network processes tracking globally implicitly securely rendering task completion events reliably uniquely tracking percentage arrays actively updating explicitly mapped strings actively efficiently accurately visually independently natively reliably wrapping seamlessly explicitly. 
 - **Keyboard Mappings:**
 - **Keyboard Mappings:**

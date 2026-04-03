@@ -1,10 +1,10 @@
-# Technical Architecture — `asky`
+# Technical Architecture — `agk`
 
 **Pluggable Rust TUI for managing agent skills, instructions, providers, and vaults**
 
 ## 1. High-Level Goals
 
-- Provide a **single-command TUI** (`asky`) to manage agent skills, instructions, providers, and vault sources.
+- Provide a **single-command TUI** (`agk`) to manage agent skills, instructions, providers, and vault sources.
 - Support **multiple vaults attached at the same time** (local, github, etc.).
 - Support **multiple AI providers** (Copilot, Claude, Gemini, Letta, Firebender, etc.) allowing for simultaneous selection to broadcast instructions to different AI agent target ecosystems.
 - Persist all managed data in a single tool-owned, easily parsed `config.toml`.
@@ -19,12 +19,12 @@
 - User hand-editing TOML as a primary workflow.
 - Complex package dependency resolution between different agent skills.
 - Remote multi-user coordination or remote lock state syncing.
-- Injecting provider-specific business logic deeply into the core `asky` domain parser.
+- Injecting provider-specific business logic deeply into the core `agk` domain parser.
 - Rich GUI beyond the terminal environment bounds.
 
 ## 3. Core System Data Flow
 
-`asky` separates logic into decoupled layers representing Data persistence (External I/O / Git / FileSystem / Providers), the Core domain (Models / Identification / Refresh Rules), the Core app operations (Scans / Installs / Updates), and the TUI overlay (Key Events / Rendering / Event loops).
+`agk` separates logic into decoupled layers representing Data persistence (External I/O / Git / FileSystem / Providers), the Core domain (Models / Identification / Refresh Rules), the Core app operations (Scans / Installs / Updates), and the TUI overlay (Key Events / Rendering / Event loops).
 
 ```mermaid
 flowchart TB
@@ -41,7 +41,7 @@ flowchart TB
 
 ## 4. Rust Module Layout
 
-`asky` separates logic vertically using following structure:
+`agk` separates logic vertically using following structure:
 
 ```text
 src/

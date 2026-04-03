@@ -61,14 +61,14 @@ jobs:
         shell: bash
         run: |
           cd target/${{ matrix.target }}/release
-          tar czf ../../../asky-${{ github.ref_name }}-${{ matrix.target }}.tar.gz asky
+          tar czf ../../../agk-${{ github.ref_name }}-${{ matrix.target }}.tar.gz agk
           cd ../../..
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: asky-${{ matrix.target }}
-          path: asky-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+          name: agk-${{ matrix.target }}
+          path: agk-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
 
   # Create GitHub release and update Homebrew tap
   release:
@@ -101,54 +101,54 @@ jobs:
       - name: Update Homebrew formula
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          MAC_INTEL_SHA=$(sha256sum artifacts/asky-${GITHUB_REF_NAME}-x86_64-apple-darwin.tar.gz | cut -d' ' -f1)
-          MAC_ARM_SHA=$(sha256sum artifacts/asky-${GITHUB_REF_NAME}-aarch64-apple-darwin.tar.gz | cut -d' ' -f1)
-          LINUX_INTEL_SHA=$(sha256sum artifacts/asky-${GITHUB_REF_NAME}-x86_64-unknown-linux-gnu.tar.gz | cut -d' ' -f1)
-          LINUX_ARM_SHA=$(sha256sum artifacts/asky-${GITHUB_REF_NAME}-aarch64-unknown-linux-gnu.tar.gz | cut -d' ' -f1)
+          MAC_INTEL_SHA=$(sha256sum artifacts/agk-${GITHUB_REF_NAME}-x86_64-apple-darwin.tar.gz | cut -d' ' -f1)
+          MAC_ARM_SHA=$(sha256sum artifacts/agk-${GITHUB_REF_NAME}-aarch64-apple-darwin.tar.gz | cut -d' ' -f1)
+          LINUX_INTEL_SHA=$(sha256sum artifacts/agk-${GITHUB_REF_NAME}-x86_64-unknown-linux-gnu.tar.gz | cut -d' ' -f1)
+          LINUX_ARM_SHA=$(sha256sum artifacts/agk-${GITHUB_REF_NAME}-aarch64-unknown-linux-gnu.tar.gz | cut -d' ' -f1)
           TAG="${GITHUB_REF_NAME}"
 
           mkdir -p Formula
-          cat > Formula/asky.rb << FORMULA
-          class Asky < Formula
+          cat > Formula/agk.rb << FORMULA
+          class Agk < Formula
             desc "A terminal-based vault management tool"
-            homepage "https://github.com/dkthezero/asky"
+            homepage "https://github.com/dkthezero/agk"
             version "${VERSION}"
             license "MIT"
 
             on_macos do
               if Hardware::CPU.arm?
-                url "https://github.com/dkthezero/asky/releases/download/${TAG}/asky-${TAG}-aarch64-apple-darwin.tar.gz"
+                url "https://github.com/dkthezero/agk/releases/download/${TAG}/agk-${TAG}-aarch64-apple-darwin.tar.gz"
                 sha256 "${MAC_ARM_SHA}"
               else
-                url "https://github.com/dkthezero/asky/releases/download/${TAG}/asky-${TAG}-x86_64-apple-darwin.tar.gz"
+                url "https://github.com/dkthezero/agk/releases/download/${TAG}/agk-${TAG}-x86_64-apple-darwin.tar.gz"
                 sha256 "${MAC_INTEL_SHA}"
               end
             end
 
             on_linux do
               if Hardware::CPU.arm?
-                url "https://github.com/dkthezero/asky/releases/download/${TAG}/asky-${TAG}-aarch64-unknown-linux-gnu.tar.gz"
+                url "https://github.com/dkthezero/agk/releases/download/${TAG}/agk-${TAG}-aarch64-unknown-linux-gnu.tar.gz"
                 sha256 "${LINUX_ARM_SHA}"
               else
-                url "https://github.com/dkthezero/asky/releases/download/${TAG}/asky-${TAG}-x86_64-unknown-linux-gnu.tar.gz"
+                url "https://github.com/dkthezero/agk/releases/download/${TAG}/agk-${TAG}-x86_64-unknown-linux-gnu.tar.gz"
                 sha256 "${LINUX_INTEL_SHA}"
               end
             end
 
             def install
-              bin.install "asky"
+              bin.install "agk"
             end
 
             test do
-              assert_match version.to_s, shell_output("#{bin}/asky --version")
+              assert_match version.to_s, shell_output("#{bin}/agk --version")
             end
           end
           FORMULA
 
-          sed -i 's/^          //' Formula/asky.rb
+          sed -i 's/^          //' Formula/agk.rb
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Formula/asky.rb
+          git add Formula/agk.rb
           git commit -m "chore: update homebrew formula to ${VERSION}"
           git push origin HEAD:master

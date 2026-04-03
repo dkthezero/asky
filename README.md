@@ -1,12 +1,12 @@
-# asky
+# agk
 
 A terminal-based manager for distributing AI agent skills and instructions across multiple providers.
 
 Manage vaults of reusable skills and instructions, then install them to Claude Code, GitHub Copilot, Gemini, and other AI platforms — all from an interactive TUI.
 
-![License](https://img.shields.io/github/license/dkthezero/asky)
-![Crates.io](https://img.shields.io/crates/v/asky)
-![GitHub release](https://img.shields.io/github/v/release/dkthezero/asky)
+![License](https://img.shields.io/github/license/dkthezero/agk)
+![Crates.io](https://img.shields.io/crates/v/agk)
+![GitHub release](https://img.shields.io/github/v/release/dkthezero/agk)
 
 ## Features
 
@@ -22,26 +22,26 @@ Manage vaults of reusable skills and instructions, then install them to Claude C
 ### Homebrew (macOS & Linux)
 
 ```bash
-brew tap dkthezero/asky
-brew install asky
+brew tap dkthezero/agk
+brew install agk
 ```
 
 ### Cargo (from source)
 
 ```bash
-cargo install asky
+cargo install agk
 ```
 
 ### From releases
 
-Download pre-built binaries from the [Releases](https://github.com/dkthezero/asky/releases) page.
+Download pre-built binaries from the [Releases](https://github.com/dkthezero/agk/releases) page.
 
 ## Quick start
 
 Launch the TUI:
 
 ```bash
-asky
+agk
 ```
 
 ### Attach a vault
@@ -79,7 +79,7 @@ asky
 
 ## Vault structure
 
-Asky expects vaults to follow this layout:
+agk expects vaults to follow this layout:
 
 ```
 my-vault/
@@ -108,18 +108,18 @@ version: 1.0.0
 
 ## Configuration
 
-Asky uses two configuration scopes:
+agk uses two configuration scopes:
 
 | Scope | Path | Purpose |
 |-------|------|---------|
-| Global | `~/.config/asky/config.toml` | Vaults, enabled providers |
-| Workspace | `.asky/config.toml` | Installed assets per workspace |
+| Global | `~/.config/agk/config.toml` | Vaults, enabled providers |
+| Workspace | `.agk/config.toml` | Installed assets per workspace |
 
 ### Clean up
 
 ```bash
-asky clean            # Remove workspace config
-asky clean --global   # Remove global config
+agk clean            # Remove workspace config
+agk clean --global   # Remove global config
 ```
 
 ## Supported providers
@@ -149,7 +149,7 @@ cargo test
 
 ## Support
 
-If you find asky useful, consider supporting its development:
+If you find agk useful, consider supporting its development:
 
 [![Patreon](https://img.shields.io/badge/Patreon-Support-f96854?logo=patreon&logoColor=white)](https://www.patreon.com/dkthezero)
 

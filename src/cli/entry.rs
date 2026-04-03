@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "asky",
+    name = "agk",
     about = "Agent skill and instruction manager CLI & TUI",
     version
 )]
@@ -13,7 +13,7 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    /// Remove asky configuration files from the active scope
+    /// Remove agk configuration files from the active scope
     Clean {
         /// Recursively clean from global folder instead of workspace folder
         #[arg(short, long)]

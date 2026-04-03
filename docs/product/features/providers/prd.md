@@ -6,7 +6,7 @@ Providers translate raw managed logical code (Skills and Instructions natively f
 The Provider functionality serves as a bridging abstraction that ensures AI agents can leverage tools downloaded from generic repositories natively within their discrete tool interfaces.
 
 ## Functional Requirements
-- **Simultaneous Target Output Ecosystems:** `asky` relies on the design ability to switch active configurations for multiple target AI frameworks simultaneously. Users can select and broadcast changes to Copilot and Claude locally in parallel.
+- **Simultaneous Target Output Ecosystems:** `agk` relies on the design ability to switch active configurations for multiple target AI frameworks simultaneously. Users can select and broadcast changes to Copilot and Claude locally in parallel.
 - **Native Implementation Rollout:** Provide built-in support explicitly mapping these platforms:
   - GitHub Copilot
   - Firebender

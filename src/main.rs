@@ -24,7 +24,7 @@ async fn main() -> Result<()> {
         let dir = if global {
             crate::domain::paths::global_config_root()
         } else {
-            std::env::current_dir()?.join(".asky")
+            std::env::current_dir()?.join(".agk")
         };
 
         if dir.exists() {

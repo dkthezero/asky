@@ -1,7 +1,7 @@
 # Technical Design: Providers
 
 ## Overview
-Provider mechanics isolate I/O logic and proprietary serialization protocols gracefully beneath Trait abstractions. By routing through `ProviderPort`, `asky` retains functional purity universally—meaning core updates functionally resolve through isolated endpoints mapping natively into separate configuration logic trees.
+Provider mechanics isolate I/O logic and proprietary serialization protocols gracefully beneath Trait abstractions. By routing through `ProviderPort`, `agk` retains functional purity universally—meaning core updates functionally resolve through isolated endpoints mapping natively into separate configuration logic trees.
 
 ## Trait Contracts
 
