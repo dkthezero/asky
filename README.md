@@ -32,7 +32,7 @@ brew install agk
 cargo install agk
 ```
 
-### From releases
+### From releases (macOS, Linux, Windows)
 
 Download pre-built binaries from the [Releases](https://github.com/dkthezero/agk/releases) page.
 
