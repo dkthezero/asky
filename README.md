@@ -126,13 +126,13 @@ asky clean --global   # Remove global config
 
 | Provider | Global install path | Workspace install path |
 |----------|-------------------|----------------------|
-| Claude Code | `~/.claude/` | `.claude/` |
-| GitHub Copilot | `~/.copilot/` | `.github/` |
-| Gemini | Provider-specific | Provider-specific |
-| Letta | Provider-specific | Provider-specific |
-| Snowflake | Provider-specific | Provider-specific |
-| Firebender | Provider-specific | Provider-specific |
-| AMP | Provider-specific | Provider-specific |
+| [Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview) | `~/.claude/` | `.claude/` |
+| [GitHub Copilot](https://docs.github.com/en/copilot/how-tos/configure-custom-instructions) | `~/.copilot/` | `.github/` |
+| [Gemini CLI](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/gemini-md.md) | Provider-specific | Provider-specific |
+| [Letta](https://docs.letta.com/introduction) | Provider-specific | Provider-specific |
+| [Snowflake](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-agents) | Provider-specific | Provider-specific |
+| [Firebender](https://docs.firebender.com/get-started/agent) | Provider-specific | Provider-specific |
+| [AMP](https://ampcode.com/manual) | Provider-specific | Provider-specific |
 
 ## Development
 
