@@ -33,22 +33,49 @@ pub fn draw(frame: &mut Frame, state: &AppState) {
     use crate::tui::app::TabKind;
 
     let is_live = state.is_active_tab_live();
-    let active_kind = state.tab_kinds.get(state.active_tab).cloned().unwrap_or(TabKind::Asset);
+    let active_kind = state
+        .tab_kinds
+        .get(state.active_tab)
+        .cloned()
+        .unwrap_or(TabKind::Asset);
 
     match active_kind {
         TabKind::Asset => {
             let filtered = state.filtered_packages();
             let selected_pkg = filtered.get(state.selected_index).copied();
-            list::render(frame, layout.list, &filtered, state.selected_index, !is_live, state.active_config());
-            detail::render(frame, layout.detail, selected_pkg, !is_live, &state.vault_entries);
+            list::render(
+                frame,
+                layout.list,
+                &filtered,
+                state.selected_index,
+                !is_live,
+                state.active_config(),
+            );
+            detail::render(
+                frame,
+                layout.detail,
+                selected_pkg,
+                !is_live,
+                &state.vault_entries,
+            );
         }
         TabKind::Vault => {
-            list::render_vaults(frame, layout.list, &state.vault_entries, state.selected_index);
+            list::render_vaults(
+                frame,
+                layout.list,
+                &state.vault_entries,
+                state.selected_index,
+            );
             let selected_vault = state.vault_entries.get(state.selected_index);
             detail::render_vault_detail(frame, layout.detail, selected_vault);
         }
         TabKind::Provider => {
-            list::render_providers(frame, layout.list, &state.provider_entries, state.selected_index);
+            list::render_providers(
+                frame,
+                layout.list,
+                &state.provider_entries,
+                state.selected_index,
+            );
             let selected_provider = state.provider_entries.get(state.selected_index);
             detail::render_provider_detail(frame, layout.detail, selected_provider);
         }

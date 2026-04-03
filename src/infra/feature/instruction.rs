@@ -3,14 +3,21 @@ use crate::domain::asset::AssetKind;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
-
 pub struct InstructionFeatureSet;
 
 impl FeatureSetPort for InstructionFeatureSet {
-    fn kind_name(&self) -> &str { "instruction" }
-    fn display_name(&self) -> &str { "Instructions" }
-    fn scan_root(&self) -> &str { "instructions" }
-    fn asset_kind(&self) -> AssetKind { AssetKind::Instruction }
+    fn kind_name(&self) -> &str {
+        "instruction"
+    }
+    fn display_name(&self) -> &str {
+        "Instructions"
+    }
+    fn scan_root(&self) -> &str {
+        "instructions"
+    }
+    fn asset_kind(&self) -> AssetKind {
+        AssetKind::Instruction
+    }
 
     fn is_package(&self, path: &Path) -> bool {
         path.join("AGENTS.md").exists()
@@ -88,7 +95,8 @@ mod tests {
         std::fs::write(
             instruction_dir.join("AGENTS.md"),
             "---\nname: my-instruction\nversion: 3.0.0\n---\n# My Instruction\n",
-        ).unwrap();
+        )
+        .unwrap();
         let version = InstructionFeatureSet.extract_version(&instruction_dir);
         assert_eq!(version, Some("3.0.0".to_string()));
     }

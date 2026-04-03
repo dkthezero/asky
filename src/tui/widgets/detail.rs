@@ -7,7 +7,13 @@ use ratatui::{
     Frame,
 };
 
-pub fn render(frame: &mut Frame, area: Rect, package: Option<&ScannedPackage>, is_stub: bool, vault_entries: &[VaultEntry]) {
+pub fn render(
+    frame: &mut Frame,
+    area: Rect,
+    package: Option<&ScannedPackage>,
+    is_stub: bool,
+    vault_entries: &[VaultEntry],
+) {
     let block = Block::default().borders(Borders::ALL).title("Detail");
 
     if is_stub {
@@ -34,9 +40,13 @@ pub fn render(frame: &mut Frame, area: Rect, package: Option<&ScannedPackage>, i
                 Line::from(vec![
                     label("Vault:    "),
                     Span::raw(format!(
-                        "{} ({})", 
-                        pkg.vault_id, 
-                        vault_entries.iter().find(|v| v.id == pkg.vault_id).map(|v| v.kind.as_str()).unwrap_or("unknown")
+                        "{} ({})",
+                        pkg.vault_id,
+                        vault_entries
+                            .iter()
+                            .find(|v| v.id == pkg.vault_id)
+                            .map(|v| v.kind.as_str())
+                            .unwrap_or("unknown")
                     )),
                 ]),
                 Line::from(vec![
@@ -64,10 +74,25 @@ pub fn render_vault_detail(frame: &mut Frame, area: Rect, vault: Option<&VaultEn
             vec![
                 Line::from(vec![label("Vault ID: "), Span::raw(v.id.clone())]),
                 Line::from(vec![label("Type:     "), Span::raw(v.kind.clone())]),
-                Line::from(vec![label("Enabled:  "), Span::raw(if v.enabled { "yes" } else { "no" })]),
+                Line::from(vec![
+                    label("Enabled:  "),
+                    Span::raw(if v.enabled { "yes" } else { "no" }),
+                ]),
                 Line::from(Span::raw("")),
-                Line::from(vec![label("Skills:       "), Span::raw(format!("{} installed / {} available", v.installed_skills, v.available_skills))]),
-                Line::from(vec![label("Instructions: "), Span::raw(format!("{} installed / {} available", v.installed_instructions, v.available_instructions))]),
+                Line::from(vec![
+                    label("Skills:       "),
+                    Span::raw(format!(
+                        "{} installed / {} available",
+                        v.installed_skills, v.available_skills
+                    )),
+                ]),
+                Line::from(vec![
+                    label("Instructions: "),
+                    Span::raw(format!(
+                        "{} installed / {} available",
+                        v.installed_instructions, v.available_instructions
+                    )),
+                ]),
             ]
         }
     };
@@ -82,7 +107,10 @@ pub fn render_provider_detail(frame: &mut Frame, area: Rect, provider: Option<&P
             let label = |s: &str| Span::styled(s.to_string(), Style::default().fg(Color::Yellow));
             vec![
                 Line::from(vec![label("Provider:  "), Span::raw(p.name.clone())]),
-                Line::from(vec![label("Supported: "), Span::raw("Agent Skills, Instructions")]),
+                Line::from(vec![
+                    label("Supported: "),
+                    Span::raw("Agent Skills, Instructions"),
+                ]),
             ]
         }
     };

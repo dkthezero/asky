@@ -134,7 +134,8 @@ mod tests {
         std::fs::write(
             skill_dir.join("SKILL.md"),
             "---\nname: my-skill\nversion: 1.5.0\n---\n# My Skill\n",
-        ).unwrap();
+        )
+        .unwrap();
         let vault = LocalVaultAdapter::new("workspace", dir.path().to_path_buf());
         let pkgs = vault.list_packages(&SkillFeatureSet).unwrap();
         assert_eq!(pkgs[0].identity.version, Some("1.5.0".to_string()));

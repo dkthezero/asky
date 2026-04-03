@@ -28,11 +28,11 @@ pub trait VaultPort: Send + Sync {
     fn id(&self) -> &str;
     #[allow(dead_code)]
     fn kind_name(&self) -> &str;
-    
+
     async fn refresh(&self) -> Result<()> {
         Ok(())
     }
-    
+
     fn list_packages(&self, feature: &dyn FeatureSetPort) -> Result<Vec<ScannedPackage>>;
 }
 

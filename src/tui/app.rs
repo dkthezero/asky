@@ -167,19 +167,25 @@ impl AppState {
             return None;
         }
 
-        let latest = self.latest_task_id
+        let latest = self
+            .latest_task_id
             .and_then(|id| self.active_tasks.get(&id))
             .or_else(|| self.active_tasks.values().next())?;
 
         let prefix = &latest.name;
         match &latest.status {
             ProgressStatus::Starting => Some(format!("{} ... ({} tasks)", prefix, total)),
-            ProgressStatus::Running(pct) => Some(format!("{} ... {}% ({} tasks)", prefix, pct, total)),
+            ProgressStatus::Running(pct) => {
+                Some(format!("{} ... {}% ({} tasks)", prefix, pct, total))
+            }
         }
     }
 
     pub fn is_attach_vault_mode(&self) -> bool {
-        matches!(self.list_mode, ListMode::AttachVault | ListMode::AttachVaultBranch | ListMode::AttachVaultPath)
+        matches!(
+            self.list_mode,
+            ListMode::AttachVault | ListMode::AttachVaultBranch | ListMode::AttachVaultPath
+        )
     }
 }
 
@@ -277,11 +283,21 @@ mod tests {
     #[test]
     fn tab_kind_vaults_and_providers() {
         let mut state = AppState::new(
-            vec!["Skills".into(), "Instructions".into(), "Providers".into(), "Vaults".into()],
+            vec![
+                "Skills".into(),
+                "Instructions".into(),
+                "Providers".into(),
+                "Vaults".into(),
+            ],
             vec![true, true, true, true],
             HashMap::new(),
         );
-        state.tab_kinds = vec![TabKind::Asset, TabKind::Asset, TabKind::Provider, TabKind::Vault];
+        state.tab_kinds = vec![
+            TabKind::Asset,
+            TabKind::Asset,
+            TabKind::Provider,
+            TabKind::Vault,
+        ];
         assert_eq!(state.tab_kinds[2], TabKind::Provider);
         assert_eq!(state.tab_kinds[3], TabKind::Vault);
     }

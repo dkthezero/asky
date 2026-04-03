@@ -16,7 +16,12 @@ pub struct GithubVaultAdapter {
 }
 
 impl GithubVaultAdapter {
-    pub fn new(id: impl Into<String>, repo: impl Into<String>, target_ref: impl Into<String>, folder_path: impl Into<String>) -> Self {
+    pub fn new(
+        id: impl Into<String>,
+        repo: impl Into<String>,
+        target_ref: impl Into<String>,
+        folder_path: impl Into<String>,
+    ) -> Self {
         Self {
             id: id.into(),
             repo: repo.into(),
@@ -47,7 +52,8 @@ impl GithubVaultAdapter {
     }
 
     fn cache_dir(&self) -> PathBuf {
-        self.cache_root.clone()
+        self.cache_root
+            .clone()
             .unwrap_or_else(crate::domain::paths::global_vaults_dir)
             .join(&self.id)
     }
@@ -58,7 +64,13 @@ impl GithubVaultAdapter {
             bail!("Cache directory does not exist for vault '{}'", self.id);
         }
         let output = StdCommand::new("git")
-            .args(["-C", dir.to_str().unwrap(), "rev-parse", "--short=10", "HEAD"])
+            .args([
+                "-C",
+                dir.to_str().unwrap(),
+                "rev-parse",
+                "--short=10",
+                "HEAD",
+            ])
             .output()?;
         if !output.status.success() {
             bail!("Failed to get commit hash for vault '{}'", self.id);
@@ -79,7 +91,7 @@ impl VaultPort for GithubVaultAdapter {
 
     async fn refresh(&self) -> Result<()> {
         self.validate()?;
-        
+
         let dir = self.cache_dir();
         let url = if self.base_url.starts_with("file://") {
             format!("{}/{}", self.base_url, self.repo)
@@ -91,16 +103,25 @@ impl VaultPort for GithubVaultAdapter {
         if let Some(parent) = log_file_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let log_file_out = std::fs::OpenOptions::new().create(true).append(true).open(&log_file_path)?;
+        let log_file_out = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_file_path)?;
 
         if dir.exists() && dir.join(".git").exists() {
             let status = Command::new("git")
-                .args(["-C", dir.to_str().unwrap(), "pull", "origin", &self.target_ref])
+                .args([
+                    "-C",
+                    dir.to_str().unwrap(),
+                    "pull",
+                    "origin",
+                    &self.target_ref,
+                ])
                 .stdout(log_file_out.try_clone().map(std::process::Stdio::from)?)
                 .stderr(log_file_out.try_clone().map(std::process::Stdio::from)?)
                 .status()
                 .await?;
-            
+
             if !status.success() {
                 bail!("Failed to pull github repo for vault '{}'", self.id);
             }
@@ -115,10 +136,12 @@ impl VaultPort for GithubVaultAdapter {
                     "clone",
                     "--filter=blob:none",
                     "--sparse",
-                    "--depth", "1",
-                    "-b", &self.target_ref,
+                    "--depth",
+                    "1",
+                    "-b",
+                    &self.target_ref,
                     &url,
-                    dir.to_str().unwrap()
+                    dir.to_str().unwrap(),
                 ])
                 .stdout(log_file_out.try_clone().map(std::process::Stdio::from)?)
                 .stderr(log_file_out.try_clone().map(std::process::Stdio::from)?)
@@ -132,8 +155,11 @@ impl VaultPort for GithubVaultAdapter {
             if !self.folder_path.is_empty() && self.folder_path != "/" {
                 let sparse_status = Command::new("git")
                     .args([
-                        "-C", dir.to_str().unwrap(),
-                        "sparse-checkout", "set", &self.folder_path
+                        "-C",
+                        dir.to_str().unwrap(),
+                        "sparse-checkout",
+                        "set",
+                        &self.folder_path,
                     ])
                     .stdout(log_file_out.try_clone().map(std::process::Stdio::from)?)
                     .stderr(std::process::Stdio::from(log_file_out))
@@ -153,29 +179,29 @@ impl VaultPort for GithubVaultAdapter {
         if !dir.exists() {
             return Ok(Vec::new());
         }
-        
+
         let mut target_root = if self.folder_path.is_empty() || self.folder_path == "/" {
             dir.clone()
         } else {
             dir.join(&self.folder_path)
         };
-        
+
         // If the path specifically targets `skills` or `instructions`, the actual vault root is the parent.
         if target_root.ends_with("skills") || target_root.ends_with("instructions") {
             if let Some(parent) = target_root.parent() {
                 target_root = parent.to_path_buf();
             }
         }
-        
+
         let local_adapter = LocalVaultAdapter::new(&self.id, target_root);
         let mut packages = local_adapter.list_packages(feature)?;
-        
+
         if let Ok(hash) = self.get_commit_hash() {
             for pkg in &mut packages {
                 pkg.identity.sha10 = hash.clone();
             }
         }
-        
+
         Ok(packages)
     }
 }
@@ -234,7 +260,7 @@ mod tests {
         let skill_dir = remote_dir.join("skills").join("my-skill");
         std::fs::create_dir_all(&skill_dir)?;
         std::fs::write(skill_dir.join("SKILL.md"), "# My Skill")?;
-        
+
         run(&["add", "."], &remote_dir);
         run(&["commit", "-m", "initial commit"], &remote_dir);
 
@@ -242,21 +268,22 @@ mod tests {
         let vault_id = "test-vault";
         let mut adapter = GithubVaultAdapter::new(vault_id, "test/repo", "main", "skills/");
         let cache_root = root.path().join("cache");
-        adapter = adapter.with_base_url(format!("file://{}", root.path().display()))
+        adapter = adapter
+            .with_base_url(format!("file://{}", root.path().display()))
             .with_cache_root(cache_root);
-        
+
         // 4. Refresh (clones/pulls)
         adapter.refresh().await?;
-        
+
         // 5. List packages
         let feature = crate::infra::feature::skill::SkillFeatureSet;
         let packages = adapter.list_packages(&feature)?;
-        
+
         assert_eq!(packages.len(), 1);
         assert_eq!(packages[0].identity.name, "my-skill");
         assert_eq!(packages[0].vault_id, vault_id);
         assert!(!packages[0].identity.sha10.is_empty());
-        
+
         Ok(())
     }
 }

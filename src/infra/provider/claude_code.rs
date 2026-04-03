@@ -2,9 +2,9 @@ use crate::app::ports::ProviderPort;
 use crate::domain::asset::{AssetKind, ScannedPackage};
 use crate::domain::identity::AssetIdentity;
 use crate::domain::scope::Scope;
-use anyhow::Result;
-use std::path::{PathBuf};
 use crate::infra::provider::common::copy_dir;
+use anyhow::Result;
+use std::path::PathBuf;
 
 pub struct ClaudeCodeProvider {
     workspace_root: PathBuf,
@@ -17,11 +17,9 @@ impl ClaudeCodeProvider {
 
     fn provider_root(&self, scope: &Scope) -> PathBuf {
         match scope {
-            Scope::Global => {
-                dirs_next::home_dir()
-                    .unwrap_or_else(|| PathBuf::from("."))
-                    .join(".claude")
-            }
+            Scope::Global => dirs_next::home_dir()
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join(".claude"),
             Scope::Workspace => self.workspace_root.join(".claude"),
         }
     }
@@ -36,7 +34,9 @@ impl ClaudeCodeProvider {
 }
 
 impl ProviderPort for ClaudeCodeProvider {
-    fn id(&self) -> &str { "claude-code" }
+    fn id(&self) -> &str {
+        "claude-code"
+    }
 
     fn name(&self) -> &str {
         "Claude Code"
@@ -93,7 +93,10 @@ mod tests {
         let pkg = make_pkg(&src_dir, "my-inst", AssetKind::Instruction, "AGENTS.md");
         let provider = ClaudeCodeProvider::new(dir.path().to_path_buf());
         provider.install(&pkg, Scope::Workspace).unwrap();
-        assert!(dir.path().join(".claude/instructions/my-inst/AGENTS.md").exists());
+        assert!(dir
+            .path()
+            .join(".claude/instructions/my-inst/AGENTS.md")
+            .exists());
     }
 
     #[test]
@@ -104,7 +107,9 @@ mod tests {
         std::fs::write(dest.join("SKILL.md"), "x").unwrap();
         let provider = ClaudeCodeProvider::new(dir.path().to_path_buf());
         let identity = AssetIdentity::new("my-skill", None, "0000000000");
-        provider.remove(&identity, &AssetKind::Skill, Scope::Workspace).unwrap();
+        provider
+            .remove(&identity, &AssetKind::Skill, Scope::Workspace)
+            .unwrap();
         assert!(!dest.exists());
     }
 

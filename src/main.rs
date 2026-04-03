@@ -4,18 +4,18 @@ mod domain;
 mod infra;
 mod tui;
 
-use app::ports::ConfigStorePort;
 use anyhow::Result;
+use app::ports::ConfigStorePort;
 use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use futures::StreamExt;
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
-use tokio::sync::mpsc;
-use futures::StreamExt; // Using futures StreamExt
+use tokio::sync::mpsc; // Using futures StreamExt
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -26,9 +26,12 @@ async fn main() -> Result<()> {
         } else {
             std::env::current_dir()?.join(".asky")
         };
-        
+
         if dir.exists() {
-            println!("This will securely remove all configuration in: {}", dir.display());
+            println!(
+                "This will securely remove all configuration in: {}",
+                dir.display()
+            );
             println!("Are you sure you want to proceed? [y/N]");
             let mut input = String::new();
             std::io::stdin().read_line(&mut input)?;
@@ -58,9 +61,17 @@ async fn main() -> Result<()> {
 
     // Build display entries before consuming scan data
     let global_config = store.load(domain::scope::Scope::Global).unwrap_or_default();
-    let active_config_for_entries = store.load(domain::scope::Scope::Workspace).unwrap_or_default();
-    let vault_entries = app::bootstrap::build_vault_entries(&global_config, &active_config_for_entries, &scan, &registry);
-    let provider_entries = app::bootstrap::build_provider_entries(&active_config_for_entries, &registry);
+    let active_config_for_entries = store
+        .load(domain::scope::Scope::Workspace)
+        .unwrap_or_default();
+    let vault_entries = app::bootstrap::build_vault_entries(
+        &global_config,
+        &active_config_for_entries,
+        &scan,
+        &registry,
+    );
+    let provider_entries =
+        app::bootstrap::build_provider_entries(&active_config_for_entries, &registry);
     let tab_kinds = app::bootstrap::build_tab_kinds(&registry);
 
     let packages: HashMap<usize, Vec<_>> = scan.packages_by_tab.into_iter().enumerate().collect();
@@ -72,10 +83,14 @@ async fn main() -> Result<()> {
 
     // Load both scope configs into AppState
     if let Ok(global_config) = store.load(domain::scope::Scope::Global) {
-        state.configs.insert(domain::scope::Scope::Global, global_config);
+        state
+            .configs
+            .insert(domain::scope::Scope::Global, global_config);
     }
     if let Ok(workspace_config) = store.load(domain::scope::Scope::Workspace) {
-        state.configs.insert(domain::scope::Scope::Workspace, workspace_config);
+        state
+            .configs
+            .insert(domain::scope::Scope::Workspace, workspace_config);
     }
 
     // Wrap in Arc for background tasks
@@ -93,7 +108,12 @@ async fn main() -> Result<()> {
         }
     });
 
-    let ctx = tui::event::EventContext { store, registry, tx, workspace_root: workspace_for_ctx };
+    let ctx = tui::event::EventContext {
+        store,
+        registry,
+        tx,
+        workspace_root: workspace_for_ctx,
+    };
 
     // Auto-pull on boot
     let tx_boot = ctx.tx.clone();
@@ -116,7 +136,8 @@ async fn main() -> Result<()> {
         execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
         terminal.show_cursor()?;
         result
-    }.await;
+    }
+    .await;
     disable_raw_mode()?;
     setup_result
 }
@@ -132,18 +153,19 @@ async fn run_loop<B: ratatui::backend::Backend>(
 
     while let Some(event) = rx.recv().await {
         match event {
-            tui::event::AppEvent::Input(evt) => {
-                match tui::event::handle(state, ctx, evt)? {
-                    tui::event::ControlFlow::Quit => break,
-                    tui::event::ControlFlow::Continue => {}
-                }
-            }
+            tui::event::AppEvent::Input(evt) => match tui::event::handle(state, ctx, evt)? {
+                tui::event::ControlFlow::Quit => break,
+                tui::event::ControlFlow::Continue => {}
+            },
             tui::event::AppEvent::TaskStarted { id, name } => {
                 state.latest_task_id = Some(id);
-                state.active_tasks.insert(id, crate::tui::app::Progress {
-                    name,
-                    status: crate::tui::app::ProgressStatus::Starting,
-                });
+                state.active_tasks.insert(
+                    id,
+                    crate::tui::app::Progress {
+                        name,
+                        status: crate::tui::app::ProgressStatus::Starting,
+                    },
+                );
             }
             tui::event::AppEvent::TaskProgress { id, percent } => {
                 if let Some(task) = state.active_tasks.get_mut(&id) {
@@ -159,46 +181,92 @@ async fn run_loop<B: ratatui::backend::Backend>(
                 state.status_line = format!("Error: {}", error);
             }
             tui::event::AppEvent::TriggerReload => {
-                let active_config_for_entries = ctx.store.load(state.active_scope).unwrap_or_default();
-                let global_config = ctx.store.load(crate::domain::scope::Scope::Global).unwrap_or_default();
-                let workspace_config = ctx.store.load(crate::domain::scope::Scope::Workspace).unwrap_or_default();
-                
-                let active_vaults = crate::app::bootstrap::build_vaults(&global_config, &ctx.workspace_root);
-                
+                let active_config_for_entries =
+                    ctx.store.load(state.active_scope).unwrap_or_default();
+                let global_config = ctx
+                    .store
+                    .load(crate::domain::scope::Scope::Global)
+                    .unwrap_or_default();
+                let workspace_config = ctx
+                    .store
+                    .load(crate::domain::scope::Scope::Workspace)
+                    .unwrap_or_default();
+
+                let active_vaults =
+                    crate::app::bootstrap::build_vaults(&global_config, &ctx.workspace_root);
+
                 if let Ok(mut scan) = crate::app::bootstrap::scan(&ctx.registry, &active_vaults) {
-                    let opt_workspace_config = if state.active_scope == crate::domain::scope::Scope::Workspace { Some(&workspace_config) } else { None };
-                    crate::app::bootstrap::filter_scan(&mut scan, &global_config, opt_workspace_config);
-                    state.vault_entries = crate::app::bootstrap::build_vault_entries(&global_config, &active_config_for_entries, &scan, &ctx.registry);
-                    state.provider_entries = crate::app::bootstrap::build_provider_entries(&active_config_for_entries, &ctx.registry);
+                    let opt_workspace_config =
+                        if state.active_scope == crate::domain::scope::Scope::Workspace {
+                            Some(&workspace_config)
+                        } else {
+                            None
+                        };
+                    crate::app::bootstrap::filter_scan(
+                        &mut scan,
+                        &global_config,
+                        opt_workspace_config,
+                    );
+                    state.vault_entries = crate::app::bootstrap::build_vault_entries(
+                        &global_config,
+                        &active_config_for_entries,
+                        &scan,
+                        &ctx.registry,
+                    );
+                    state.provider_entries = crate::app::bootstrap::build_provider_entries(
+                        &active_config_for_entries,
+                        &ctx.registry,
+                    );
                     state.packages = scan.packages_by_tab.into_iter().enumerate().collect();
                 }
-                
-                state.configs.insert(crate::domain::scope::Scope::Global, global_config);
-                state.configs.insert(crate::domain::scope::Scope::Workspace, workspace_config);
+
+                state
+                    .configs
+                    .insert(crate::domain::scope::Scope::Global, global_config);
+                state
+                    .configs
+                    .insert(crate::domain::scope::Scope::Workspace, workspace_config);
             }
-            tui::event::AppEvent::VaultRefreshRequired { id: vault_id, config: vault_config } => {
+            tui::event::AppEvent::VaultRefreshRequired {
+                id: vault_id,
+                config: vault_config,
+            } => {
                 let tx = ctx.tx.clone();
                 tokio::spawn(async move {
                     let vault: Box<dyn crate::app::ports::VaultPort> = match vault_config {
                         crate::domain::config::VaultConfig::Github(g) => {
                             Box::new(crate::infra::vault::github::GithubVaultAdapter::new(
-                                vault_id.clone(), g.repo, g.r#ref, g.path
+                                vault_id.clone(),
+                                g.repo,
+                                g.r#ref,
+                                g.path,
                             ))
                         }
                         crate::domain::config::VaultConfig::Local(l) => {
                             Box::new(crate::infra::vault::local::LocalVaultAdapter::new(
-                                vault_id.clone(), std::path::PathBuf::from(l.path)
+                                vault_id.clone(),
+                                std::path::PathBuf::from(l.path),
                             ))
                         }
                     };
-                    let id = crate::tui::app::NEXT_TASK_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                    let _ = tx.send(tui::event::AppEvent::TaskStarted { id, name: format!("Pulling vault '{}'...", vault_id) });
+                    let id = crate::tui::app::NEXT_TASK_ID
+                        .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    let _ = tx.send(tui::event::AppEvent::TaskStarted {
+                        id,
+                        name: format!("Pulling vault '{}'...", vault_id),
+                    });
                     if let Err(e) = vault.refresh().await {
-                        let _ = tx.send(tui::event::AppEvent::TaskFailed { id, error: e.to_string() });
+                        let _ = tx.send(tui::event::AppEvent::TaskFailed {
+                            id,
+                            error: e.to_string(),
+                        });
                     } else {
                         let _ = tx.send(tui::event::AppEvent::TaskProgress { id, percent: 100 });
                         let _ = tx.send(tui::event::AppEvent::TriggerReload);
-                        let _ = tx.send(tui::event::AppEvent::TaskCompleted { id, message: format!("Pulled vault '{}'", vault_id) });
+                        let _ = tx.send(tui::event::AppEvent::TaskCompleted {
+                            id,
+                            message: format!("Pulled vault '{}'", vault_id),
+                        });
                     }
                 });
             }

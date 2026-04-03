@@ -89,7 +89,8 @@ mod tests {
         std::fs::write(
             skill_dir.join("SKILL.md"),
             "---\nname: my-skill\nversion: 2.1.0\n---\n# My Skill\n",
-        ).unwrap();
+        )
+        .unwrap();
         let version = SkillFeatureSet.extract_version(&skill_dir);
         assert_eq!(version, Some("2.1.0".to_string()));
     }

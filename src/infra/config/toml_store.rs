@@ -1,5 +1,3 @@
-
-
 use crate::app::ports::ConfigStorePort;
 use crate::domain::config::ConfigFile;
 use crate::domain::scope::Scope;
@@ -14,7 +12,11 @@ pub struct TomlConfigStore {
 
 impl TomlConfigStore {
     pub fn new(global_path: PathBuf, workspace_path: PathBuf) -> Self {
-        Self { global_path, workspace_path, lock: std::sync::Mutex::new(()) }
+        Self {
+            global_path,
+            workspace_path,
+            lock: std::sync::Mutex::new(()),
+        }
     }
 
     /// Construct with standard locations: ~/.config/asky/config.toml (global)
@@ -35,7 +37,10 @@ impl TomlConfigStore {
 
 impl ConfigStorePort for TomlConfigStore {
     fn load(&self, scope: Scope) -> Result<ConfigFile> {
-        let _guard = self.lock.lock().map_err(|e| anyhow::anyhow!("Lock poisoned: {}", e))?;
+        let _guard = self
+            .lock
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Lock poisoned: {}", e))?;
         let path = self.path_for(scope);
         if !path.exists() {
             return Ok(ConfigFile::default());
@@ -47,7 +52,10 @@ impl ConfigStorePort for TomlConfigStore {
     }
 
     fn save(&self, scope: Scope, config: &ConfigFile) -> Result<()> {
-        let _guard = self.lock.lock().map_err(|e| anyhow::anyhow!("Lock poisoned: {}", e))?;
+        let _guard = self
+            .lock
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Lock poisoned: {}", e))?;
         let path = self.path_for(scope);
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -95,13 +103,16 @@ mod tests {
         let mut config = ConfigFile::default();
         config.vaults = vec!["workspace".to_string()];
         config.providers = vec!["claude-code".to_string()];
-        config.vault_defs.insert("workspace".to_string(), VaultSection {
-            vault: None,
-            skills: Some(AssetBucket {
-                items: vec!["[my-skill:--:0000000000]".to_string()],
-            }),
-            instructions: None,
-        });
+        config.vault_defs.insert(
+            "workspace".to_string(),
+            VaultSection {
+                vault: None,
+                skills: Some(AssetBucket {
+                    items: vec!["[my-skill:--:0000000000]".to_string()],
+                }),
+                instructions: None,
+            },
+        );
         store.save(Scope::Workspace, &config).unwrap();
         let loaded = store.load(Scope::Workspace).unwrap();
         assert_eq!(loaded.vaults, vec!["workspace"]);

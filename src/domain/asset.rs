@@ -31,8 +31,10 @@ impl VaultEntry {
     pub fn counts_label(&self) -> String {
         format!(
             "{}/{}s  {}/{}i",
-            self.installed_skills, self.available_skills,
-            self.installed_instructions, self.available_instructions,
+            self.installed_skills,
+            self.available_skills,
+            self.installed_instructions,
+            self.available_instructions,
         )
     }
 }

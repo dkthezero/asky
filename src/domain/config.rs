@@ -39,11 +39,16 @@ pub struct AssetKey {
 impl AssetKey {
     #[allow(dead_code)]
     pub fn new(name: impl Into<String>, vault_id: impl Into<String>) -> Self {
-        Self { name: name.into(), vault_id: vault_id.into() }
+        Self {
+            name: name.into(),
+            vault_id: vault_id.into(),
+        }
     }
 }
 
-fn default_version() -> u32 { 1 }
+fn default_version() -> u32 {
+    1
+}
 
 /// Full config.toml schema — one instance per scope.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -101,25 +106,39 @@ impl ConfigFile {
     }
 
     pub fn is_skill_installed(&self, vault_id: &str, name: &str) -> bool {
-        self.installed_skills(vault_id).iter().any(|id| id.name == name)
+        self.installed_skills(vault_id)
+            .iter()
+            .any(|id| id.name == name)
     }
 
     pub fn is_instruction_installed(&self, vault_id: &str, name: &str) -> bool {
-        self.installed_instructions(vault_id).iter().any(|id| id.name == name)
+        self.installed_instructions(vault_id)
+            .iter()
+            .any(|id| id.name == name)
     }
 
     pub fn installed_skill_hash(&self, vault_id: &str, name: &str) -> Option<String> {
-        self.installed_skills(vault_id).into_iter().find(|id| id.name == name).map(|id| id.sha10)
+        self.installed_skills(vault_id)
+            .into_iter()
+            .find(|id| id.name == name)
+            .map(|id| id.sha10)
     }
 
     pub fn installed_instruction_hash(&self, vault_id: &str, name: &str) -> Option<String> {
-        self.installed_instructions(vault_id).into_iter().find(|id| id.name == name).map(|id| id.sha10)
+        self.installed_instructions(vault_id)
+            .into_iter()
+            .find(|id| id.name == name)
+            .map(|id| id.sha10)
     }
 
     pub fn has_installed_assets(&self, vault_id: &str) -> bool {
         if let Some(section) = self.vault_defs.get(vault_id) {
             let s_count = section.skills.as_ref().map(|b| b.items.len()).unwrap_or(0);
-            let i_count = section.instructions.as_ref().map(|b| b.items.len()).unwrap_or(0);
+            let i_count = section
+                .instructions
+                .as_ref()
+                .map(|b| b.items.len())
+                .unwrap_or(0);
             s_count + i_count > 0
         } else {
             false
@@ -130,8 +149,12 @@ impl ConfigFile {
     /// resulting from serde(flatten).
     pub fn validate(&self) -> anyhow::Result<()> {
         for (id, section) in &self.vault_defs {
-            if section.vault.is_none() && section.skills.is_none() && section.instructions.is_none() {
-                anyhow::bail!("Unknown top-level field or empty vault definition in config: '{}'", id);
+            if section.vault.is_none() && section.skills.is_none() && section.instructions.is_none()
+            {
+                anyhow::bail!(
+                    "Unknown top-level field or empty vault definition in config: '{}'",
+                    id
+                );
             }
         }
         Ok(())
@@ -142,8 +165,14 @@ impl ConfigFile {
 pub fn parse_identity(s: &str) -> Option<AssetIdentity> {
     let inner = s.strip_prefix('[')?.strip_suffix(']')?;
     let parts: Vec<&str> = inner.splitn(3, ':').collect();
-    if parts.len() != 3 { return None; }
-    let version = if parts[1] == "--" { None } else { Some(parts[1].to_string()) };
+    if parts.len() != 3 {
+        return None;
+    }
+    let version = if parts[1] == "--" {
+        None
+    } else {
+        Some(parts[1].to_string())
+    };
     Some(AssetIdentity::new(parts[0], version, parts[2]))
 }
 
@@ -192,11 +221,16 @@ mod tests {
     #[test]
     fn is_skill_installed_true_when_present() {
         let mut config = ConfigFile::default();
-        config.vault_defs.insert("workspace".to_string(), VaultSection {
-            vault: None,
-            skills: Some(AssetBucket { items: vec!["[my-skill:--:0000000000]".to_string()] }),
-            instructions: None,
-        });
+        config.vault_defs.insert(
+            "workspace".to_string(),
+            VaultSection {
+                vault: None,
+                skills: Some(AssetBucket {
+                    items: vec!["[my-skill:--:0000000000]".to_string()],
+                }),
+                instructions: None,
+            },
+        );
         assert!(config.is_skill_installed("workspace", "my-skill"));
         assert!(!config.is_skill_installed("workspace", "other-skill"));
     }

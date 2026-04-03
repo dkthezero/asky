@@ -1,5 +1,3 @@
-
-
 use crate::app::ports::{ConfigStorePort, ProviderPort};
 use crate::domain::asset::{AssetKind, ScannedPackage};
 use crate::domain::config::{AssetBucket, VaultConfig};
@@ -30,7 +28,9 @@ pub fn install_asset(
             }
         }
         AssetKind::Instruction => {
-            let bucket = section.instructions.get_or_insert_with(AssetBucket::default);
+            let bucket = section
+                .instructions
+                .get_or_insert_with(AssetBucket::default);
             if !bucket.items.contains(&identity_str) {
                 bucket.items.push(identity_str);
             }
@@ -86,10 +86,7 @@ pub fn attach_vault(
 /// Detach a vault from the global config. Removes from active vaults list.
 /// Only removes the vault definition if no installed assets reference it
 /// in either global or workspace scope.
-pub fn detach_vault(
-    vault_id: &str,
-    store: &dyn ConfigStorePort,
-) -> Result<()> {
+pub fn detach_vault(vault_id: &str, store: &dyn ConfigStorePort) -> Result<()> {
     let mut config = store.load(Scope::Global)?;
     config.vaults.retain(|v| v != vault_id);
 
@@ -161,11 +158,7 @@ pub fn install_provider(
 
 /// Remove a provider from the scope's config.
 #[allow(dead_code)]
-pub fn remove_provider(
-    scope: Scope,
-    provider_id: &str,
-    store: &dyn ConfigStorePort,
-) -> Result<()> {
+pub fn remove_provider(scope: Scope, provider_id: &str, store: &dyn ConfigStorePort) -> Result<()> {
     let mut config = store.load(scope)?;
     config.providers.retain(|p| p != provider_id);
     store.save(scope, &config)
@@ -175,7 +168,7 @@ pub fn remove_provider(
 mod tests {
     use super::*;
     use crate::domain::asset::AssetKind;
-    use crate::domain::config::{ConfigFile, VaultSection, AssetBucket};
+    use crate::domain::config::{AssetBucket, ConfigFile, VaultSection};
     use anyhow::Result;
     use std::collections::HashMap;
     use std::sync::Mutex;
@@ -186,24 +179,48 @@ mod tests {
 
     impl ConfigStorePort for FakeStore {
         fn load(&self, scope: Scope) -> Result<ConfigFile> {
-            Ok(self.0.lock().unwrap().get(&format!("{:?}", scope)).cloned().unwrap_or_default())
+            Ok(self
+                .0
+                .lock()
+                .unwrap()
+                .get(&format!("{:?}", scope))
+                .cloned()
+                .unwrap_or_default())
         }
         fn save(&self, scope: Scope, config: &ConfigFile) -> Result<()> {
-            self.0.lock().unwrap().insert(format!("{:?}", scope), config.clone());
+            self.0
+                .lock()
+                .unwrap()
+                .insert(format!("{:?}", scope), config.clone());
             Ok(())
         }
     }
 
     // --- Fake provider ---
-    struct FakeProvider { installed: Mutex<Vec<String>>, removed: Mutex<Vec<String>> }
+    struct FakeProvider {
+        installed: Mutex<Vec<String>>,
+        removed: Mutex<Vec<String>>,
+    }
     impl FakeProvider {
-        fn new() -> Self { Self { installed: Mutex::new(vec![]), removed: Mutex::new(vec![]) } }
+        fn new() -> Self {
+            Self {
+                installed: Mutex::new(vec![]),
+                removed: Mutex::new(vec![]),
+            }
+        }
     }
     impl ProviderPort for FakeProvider {
-        fn id(&self) -> &str { "fake" }
-        fn name(&self) -> &str { "Fake" }
+        fn id(&self) -> &str {
+            "fake"
+        }
+        fn name(&self) -> &str {
+            "Fake"
+        }
         fn install(&self, pkg: &ScannedPackage, _scope: Scope) -> Result<()> {
-            self.installed.lock().unwrap().push(pkg.identity.name.clone());
+            self.installed
+                .lock()
+                .unwrap()
+                .push(pkg.identity.name.clone());
             Ok(())
         }
         fn remove(&self, identity: &AssetIdentity, _kind: &AssetKind, _scope: Scope) -> Result<()> {
@@ -241,7 +258,11 @@ mod tests {
         let pkg = make_pkg("my-skill", AssetKind::Skill);
         install_asset(Scope::Workspace, &pkg, &store, &provider).unwrap();
 
-        assert!(provider.installed.lock().unwrap().contains(&"my-skill".to_string()));
+        assert!(provider
+            .installed
+            .lock()
+            .unwrap()
+            .contains(&"my-skill".to_string()));
         let loaded = store.load(Scope::Workspace).unwrap();
         assert!(loaded.is_skill_installed("workspace", "my-skill"));
     }
@@ -252,17 +273,34 @@ mod tests {
         let provider = FakeProvider::new();
         let mut config = ConfigFile::default();
         config.providers = vec!["fake".to_string()];
-        config.vault_defs.insert("workspace".to_string(), VaultSection {
-            vault: None,
-            skills: Some(AssetBucket { items: vec!["[my-skill:--:0000000000]".to_string()] }),
-            instructions: None,
-        });
+        config.vault_defs.insert(
+            "workspace".to_string(),
+            VaultSection {
+                vault: None,
+                skills: Some(AssetBucket {
+                    items: vec!["[my-skill:--:0000000000]".to_string()],
+                }),
+                instructions: None,
+            },
+        );
         store.save(Scope::Workspace, &config).unwrap();
 
         let identity = AssetIdentity::new("my-skill", None, "0000000000");
-        remove_asset(Scope::Workspace, &identity, &AssetKind::Skill, "workspace", &store, &provider).unwrap();
+        remove_asset(
+            Scope::Workspace,
+            &identity,
+            &AssetKind::Skill,
+            "workspace",
+            &store,
+            &provider,
+        )
+        .unwrap();
 
-        assert!(provider.removed.lock().unwrap().contains(&"my-skill".to_string()));
+        assert!(provider
+            .removed
+            .lock()
+            .unwrap()
+            .contains(&"my-skill".to_string()));
         let loaded = store.load(Scope::Workspace).unwrap();
         assert!(!loaded.is_skill_installed("workspace", "my-skill"));
     }
@@ -274,7 +312,8 @@ mod tests {
             "my-vault".to_string(),
             VaultConfig::Local(crate::domain::config::LocalVaultSource { path: ".".into() }),
             &store,
-        ).unwrap();
+        )
+        .unwrap();
         let config = store.load(Scope::Global).unwrap();
         assert_eq!(config.vaults, vec!["my-vault"]);
         assert!(config.vault_defs.contains_key("my-vault"));
@@ -287,11 +326,16 @@ mod tests {
 
         let mut config = ConfigFile::default();
         config.providers = vec!["fake".to_string()];
-        config.vault_defs.insert("workspace".to_string(), VaultSection {
-            vault: None,
-            skills: Some(AssetBucket { items: vec!["[my-skill:--:old_sha_old]".to_string()] }),
-            instructions: None,
-        });
+        config.vault_defs.insert(
+            "workspace".to_string(),
+            VaultSection {
+                vault: None,
+                skills: Some(AssetBucket {
+                    items: vec!["[my-skill:--:old_sha_old]".to_string()],
+                }),
+                instructions: None,
+            },
+        );
         store.save(Scope::Workspace, &config).unwrap();
 
         let pkg = ScannedPackage {
@@ -313,11 +357,14 @@ mod tests {
         let store = FakeStore::default();
         let mut config = ConfigFile::default();
         config.vaults = vec!["workspace".to_string()];
-        config.vault_defs.insert("workspace".to_string(), VaultSection {
-            vault: None,
-            skills: None,
-            instructions: None,
-        });
+        config.vault_defs.insert(
+            "workspace".to_string(),
+            VaultSection {
+                vault: None,
+                skills: None,
+                instructions: None,
+            },
+        );
         store.save(Scope::Global, &config).unwrap();
 
         detach_vault("workspace", &store).unwrap();
@@ -332,11 +379,16 @@ mod tests {
         let store = FakeStore::default();
         let mut config = ConfigFile::default();
         config.vaults = vec!["workspace".to_string()];
-        config.vault_defs.insert("workspace".to_string(), VaultSection {
-            vault: None,
-            skills: Some(AssetBucket { items: vec!["[x:--:0000000000]".to_string()] }),
-            instructions: None,
-        });
+        config.vault_defs.insert(
+            "workspace".to_string(),
+            VaultSection {
+                vault: None,
+                skills: Some(AssetBucket {
+                    items: vec!["[x:--:0000000000]".to_string()],
+                }),
+                instructions: None,
+            },
+        );
         store.save(Scope::Global, &config).unwrap();
 
         detach_vault("workspace", &store).unwrap();
