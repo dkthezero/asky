@@ -88,6 +88,9 @@ impl VaultPort for GithubVaultAdapter {
         };
 
         let log_file_path = crate::domain::paths::global_config_root().join("git.log");
+        if let Some(parent) = log_file_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
         let log_file_out = std::fs::OpenOptions::new().create(true).append(true).open(&log_file_path)?;
 
         if dir.exists() && dir.join(".git").exists() {
