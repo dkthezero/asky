@@ -1,0 +1,5 @@
+.worktrees/
+target/
+.DS_Store
+docs/superpowers/
+.asky/

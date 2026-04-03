@@ -1,0 +1,33 @@
+[package]
+name = "asky"
+version = "0.1.0"
+edition = "2021"
+authors = ["dkthezero"]
+description = "A terminal-based vault management tool"
+repository = "https://github.com/dkthezero/asky"
+license = "MIT"
+keywords = ["cli", "vault", "tui"]
+categories = ["command-line-utilities"]
+readme = "README.md"
+
+[[bin]]
+name = "asky"
+path = "src/main.rs"
+
+[dependencies]
+ratatui = "0.29"
+crossterm = { version = "0.28", features = ["event-stream"] }
+clap = { version = "4", features = ["derive"] }
+sha2 = "0.10"
+hex = "0.4"
+walkdir = "2"
+anyhow = "1"
+toml = "0.8"
+serde = { version = "1", features = ["derive"] }
+dirs-next = "2"
+tokio = { version = "1.35", features = ["full"] }
+async-trait = "0.1"
+futures = "0.3"
+
+[dev-dependencies]
+tempfile = "3"
