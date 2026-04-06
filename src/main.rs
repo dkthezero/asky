@@ -151,7 +151,11 @@ async fn main() -> Result<()> {
     }
     .await;
     disable_raw_mode()?;
-    setup_result
+
+    // Force exit to kill any lingering blocking background tasks
+    // (e.g. slow clawhub CLI calls) that would otherwise prevent shutdown.
+    let code = if setup_result.is_ok() { 0 } else { 1 };
+    std::process::exit(code);
 }
 
 async fn run_loop<B: ratatui::backend::Backend>(
@@ -239,9 +243,10 @@ async fn run_loop<B: ratatui::backend::Backend>(
                     .configs
                     .insert(crate::domain::scope::Scope::Workspace, workspace_config);
             }
-            tui::event::AppEvent::ClawHubSearchResults { packages } => {
+            tui::event::AppEvent::ClawHubSearchResults { packages, task_id } => {
                 state.remote_packages = packages;
-                state.clawhub_searching = false;
+                state.active_tasks.remove(&task_id);
+                state.clawhub_search_task_id = None;
             }
             tui::event::AppEvent::Tick => {
                 state.scroll_tick = state.scroll_tick.wrapping_add(1);

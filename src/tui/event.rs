@@ -34,6 +34,7 @@ pub enum AppEvent {
     },
     ClawHubSearchResults {
         packages: Vec<crate::domain::asset::ScannedPackage>,
+        task_id: usize,
     },
     Tick,
 }
@@ -53,21 +54,18 @@ fn is_clawhub_active(ctx: &EventContext) -> bool {
 }
 
 fn dispatch_clawhub_search(state: &mut AppState, ctx: &EventContext) {
-    state.clawhub_searching = true;
     let query = state.search_query.clone();
     let tx = ctx.tx.clone();
-    tokio::task::spawn_blocking(
-        move || match crate::infra::vault::clawhub::cli_search(&query) {
-            Ok(packages) => {
-                let _ = tx.send(AppEvent::ClawHubSearchResults { packages });
-            }
-            Err(_) => {
-                let _ = tx.send(AppEvent::ClawHubSearchResults {
-                    packages: Vec::new(),
-                });
-            }
-        },
-    );
+    let id = crate::tui::app::NEXT_TASK_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    state.clawhub_search_task_id = Some(id);
+    let _ = ctx.tx.send(AppEvent::TaskStarted {
+        id,
+        name: format!("Searching ClawHub '{}'", query),
+    });
+    tokio::task::spawn_blocking(move || {
+        let packages = crate::infra::vault::clawhub::cli_search(&query).unwrap_or_default();
+        let _ = tx.send(AppEvent::ClawHubSearchResults { packages, task_id: id });
+    });
 }
 
 pub fn handle(
@@ -378,7 +376,9 @@ fn handle_backspace(state: &mut AppState) {
         if state.search_query.is_empty() {
             state.list_mode = ListMode::Normal;
             state.remote_packages.clear();
-            state.clawhub_searching = false;
+            if let Some(id) = state.clawhub_search_task_id.take() {
+                state.active_tasks.remove(&id);
+            }
         }
         state.selected_index = 0;
     }
@@ -925,7 +925,9 @@ pub fn apply_esc(state: &mut AppState) {
     state.list_mode = ListMode::Normal;
     state.selected_index = 0;
     state.remote_packages.clear();
-    state.clawhub_searching = false;
+    if let Some(id) = state.clawhub_search_task_id.take() {
+        state.active_tasks.remove(&id);
+    }
 }
 
 pub fn apply_scope_toggle(state: &mut AppState) {

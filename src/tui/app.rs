@@ -61,7 +61,7 @@ pub struct AppState {
     pub pending_vault_path: String,
     pub esc_pressed_once: bool,
     pub remote_packages: Vec<ScannedPackage>,
-    pub clawhub_searching: bool,
+    pub clawhub_search_task_id: Option<usize>,
     pub scroll_offset: usize,
     pub scroll_tick: u8,
 }
@@ -98,7 +98,7 @@ impl AppState {
             pending_vault_path: String::new(),
             esc_pressed_once: false,
             remote_packages: Vec::new(),
-            clawhub_searching: false,
+            clawhub_search_task_id: None,
             scroll_offset: 0,
             scroll_tick: 0,
         }
