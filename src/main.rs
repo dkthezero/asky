@@ -249,8 +249,9 @@ async fn run_loop<B: ratatui::backend::Backend>(
                             ))
                         }
                         crate::domain::config::VaultConfig::Clawhub(_) => {
-                            // ClawHub vault support is not yet implemented
-                            return;
+                            Box::new(crate::infra::vault::clawhub::ClawHubVaultAdapter::new(
+                                vault_id.clone(),
+                            ))
                         }
                     };
                     let id = crate::tui::app::NEXT_TASK_ID
