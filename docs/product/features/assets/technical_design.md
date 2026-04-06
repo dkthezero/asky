@@ -15,6 +15,25 @@ If metadata definitions naturally bypass version arrays natively gracefully bypa
 [local-script-v1:--:9ac00ff113]
 ```
 
+### Display Format
+The `AssetIdentity::Display` implementation shows `name:version` when a semver version is available, falling back to `name:sha10` for local-only packages without version metadata:
+```text
+web-browsing-tool:1.2.0     # versioned
+local-script-v1:9ac00ff113  # hash fallback
+```
+
+### Remote Metadata
+Packages sourced from remote registries (e.g., ClawHub) carry additional metadata:
+```rust
+pub struct RemoteMetadata {
+    pub owner: String,
+    pub summary: String,
+    pub downloads: u64,
+    pub stars: u64,
+}
+```
+Remote packages are identified by `is_remote: true` on `ScannedPackage` and rendered in DarkGray with aligned metadata columns in the list view.
+
 ## Schema Entities
 
 ### Packages

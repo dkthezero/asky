@@ -64,7 +64,10 @@ fn dispatch_clawhub_search(state: &mut AppState, ctx: &EventContext) {
     });
     tokio::task::spawn_blocking(move || {
         let packages = crate::infra::vault::clawhub::cli_search(&query).unwrap_or_default();
-        let _ = tx.send(AppEvent::ClawHubSearchResults { packages, task_id: id });
+        let _ = tx.send(AppEvent::ClawHubSearchResults {
+            packages,
+            task_id: id,
+        });
     });
 }
 

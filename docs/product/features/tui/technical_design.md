@@ -32,6 +32,10 @@ struct AppState {
     pub pending_vault_ref: String,
     pub pending_vault_path: String,
     pub esc_pressed_once: bool,
+    pub remote_packages: Vec<ScannedPackage>,
+    pub clawhub_search_task_id: Option<usize>,
+    pub scroll_offset: usize,
+    pub scroll_tick: u8,
 }
 ```
 
@@ -45,6 +49,9 @@ enum AppEvent {
     TaskCompleted { id: usize, message: String },
     TaskFailed { id: usize, error: String },
     TriggerReload,
+    VaultRefreshRequired { id: String, config: VaultConfig },
+    ClawHubSearchResults { packages: Vec<ScannedPackage>, task_id: usize },
+    Tick,
 }
 ```
 **Architecture Rules:**

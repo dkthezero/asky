@@ -86,7 +86,12 @@ pub fn render(
 
             if pkg.is_remote {
                 let remote_style = Style::default().fg(Color::DarkGray);
-                let slug = pkg.identity.name.rsplit('/').next().unwrap_or(&pkg.identity.name);
+                let slug = pkg
+                    .identity
+                    .name
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or(&pkg.identity.name);
                 let (owner_str, dl_str, star_str) = if let Some(meta) = &pkg.remote_meta {
                     (
                         meta.owner.clone(),
@@ -116,11 +121,26 @@ pub fn render(
                 if pad > 0 {
                     spans.push(Span::raw(" ".repeat(pad)));
                 }
-                spans.push(Span::styled(format!("  {:<w$}", owner_str, w = max_owner), remote_style));
-                spans.push(Span::styled(format!("  {:>w$}", dl_str, w = max_dl), remote_style));
-                spans.push(Span::styled(format!("  {:>w$}", star_str, w = max_star), remote_style));
-                spans.push(Span::styled(format!("  {:>w$}", version_str, w = max_version), remote_style));
-                spans.push(Span::styled(format!("  {:<w$}", vault_str, w = max_vault), remote_style));
+                spans.push(Span::styled(
+                    format!("  {:<w$}", owner_str, w = max_owner),
+                    remote_style,
+                ));
+                spans.push(Span::styled(
+                    format!("  {:>w$}", dl_str, w = max_dl),
+                    remote_style,
+                ));
+                spans.push(Span::styled(
+                    format!("  {:>w$}", star_str, w = max_star),
+                    remote_style,
+                ));
+                spans.push(Span::styled(
+                    format!("  {:>w$}", version_str, w = max_version),
+                    remote_style,
+                ));
+                spans.push(Span::styled(
+                    format!("  {:<w$}", vault_str, w = max_vault),
+                    remote_style,
+                ));
             } else {
                 // Local packages: right-align version + vault using same max widths
                 let right_len = (max_version + 2) + (max_vault + 2);

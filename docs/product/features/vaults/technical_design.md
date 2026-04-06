@@ -46,6 +46,9 @@ path = "vault"
 [vault.local-dev]
 type = "local"
 path = "/Users/jane/dev/agent-vault"
+
+[vault.clawhub]
+type = "clawhub"
 ```
 
 ## Internal Workflows
@@ -57,6 +60,38 @@ To provide a granular configuration experience for remote vaults, the TUI implem
 3. **Subfolder Path**: Prompts for the relative directory containing assets. Defaults to `skills/`.
 
 Once finalized, the adapter immediately triggers an async `refresh()` to execute a sparse clone, followed by a global `TriggerReload` to populate the asset registry.
+
+### ClawHub Vault Adapter
+The `ClawHubVaultAdapter` implements `VaultPort` using a CLI-delegation pattern. All remote operations shell out to the `clawhub` binary rather than implementing HTTP/API calls directly.
+
+```rust
+pub struct ClawHubVaultAdapter {
+    id: String,
+}
+
+impl VaultPort for ClawHubVaultAdapter {
+    fn id(&self) -> &str { &self.id }
+    fn kind_name(&self) -> &str { "clawhub" }
+    fn list_packages(&self, feature: &dyn FeatureSetPort) -> Result<Vec<ScannedPackage>> {
+        // Delegates to LocalVaultAdapter scanning ~/.config/agk/clawhub/
+    }
+}
+```
+
+**CLI Commands Used:**
+- `clawhub search <query>` — returns matching slugs (stdout), one per line, format: `slug  DisplayName  (score)`
+- `clawhub inspect <slug> --json` — returns JSON with `owner.handle`, `skill.summary`, `skill.stats.downloads`, `skill.stats.stars`, `latestVersion.version`
+- `clawhub install <slug> --workdir <path>` — installs skill files into the specified directory
+
+**Helper Functions:**
+- `is_cli_available()` — checks `which clawhub` on `$PATH`
+- `is_homebrew_available()` — checks `which brew`
+- `install_cli_via_homebrew()` — runs `brew install clawhub`
+- `cli_search(query)` — parses search output, enriches each result (up to 10) via `inspect_slug()`, returns `Vec<ScannedPackage>` with `is_remote: true` and populated `RemoteMetadata`
+- `cli_install(name)` — strips `owner/` prefix, runs install into `clawhub_cache_dir()`
+
+**Search Integration:**
+Search dispatches are registered as tasks via `TaskStarted`/`TaskCompleted` events, so progress renders in the bottom-right task progress area alongside other background operations. Results arrive via `AppEvent::ClawHubSearchResults` and are merged with local results (local wins on deduplication).
 
 ### Boot Execution Sequences
 When `agk` starts, the bootstrap loader resolves `config.toml`:

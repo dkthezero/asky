@@ -16,8 +16,9 @@ The `agk` Terminal UI acts as the unified user control layer handling explicit i
   - `F4`: Refresh and rescan all vaults globally.
   - `F5`: Update All installed assets in the current scope.
   - `[Tab]`: Toggle between **GLOBAL** and **WORKSPACE** scopes.
-  - `Esc x 2`: Prompt and confirm to quit the application safely.
+  - `Esc x 2`: Prompt and confirm to quit the application safely. Force-exits the process to kill any lingering background tasks (e.g., slow network calls).
   - `Ctrl-C`: Immediate safe termination.
+  - `Type` (on Skills tab): Filters local packages and, when ClawHub vault is active, dispatches a parallel remote search. Results merge with local filtering (local wins on duplicates).
 
 ```mermaid
 flowchart TB
