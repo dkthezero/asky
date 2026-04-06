@@ -469,6 +469,9 @@ fn handle_space_asset(state: &mut AppState, ctx: &EventContext) -> Result<()> {
         filtered.get(state.selected_index).copied().cloned()
     };
     if let Some(pkg) = pkg_opt {
+        if pkg.is_remote {
+            return handle_install_remote_clawhub(state, ctx, &pkg);
+        }
         let is_installed = state.is_installed(&pkg.vault_id, &pkg.identity.name, &pkg.kind);
         let store = ctx.store.clone();
         let active_scope = state.active_scope;
@@ -548,6 +551,115 @@ fn handle_space_asset(state: &mut AppState, ctx: &EventContext) -> Result<()> {
             }
         });
     }
+    Ok(())
+}
+
+fn handle_install_remote_clawhub(
+    state: &mut AppState,
+    ctx: &EventContext,
+    pkg: &crate::domain::asset::ScannedPackage,
+) -> Result<()> {
+    let slug = pkg.identity.name.clone();
+    let store = ctx.store.clone();
+    let tx = ctx.tx.clone();
+    let registry = ctx.registry.clone();
+    let active_scope = state.active_scope;
+
+    let fetch_id = crate::tui::app::NEXT_TASK_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let install_id =
+        crate::tui::app::NEXT_TASK_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
+    let _ = tx.send(AppEvent::TaskStarted {
+        id: fetch_id,
+        name: format!("Fetching '{}' from ClawHub", slug),
+    });
+    let _ = tx.send(AppEvent::TaskStarted {
+        id: install_id,
+        name: format!("Installing '{}' to {:?}", slug, active_scope),
+    });
+
+    tokio::task::spawn_blocking(move || {
+        match crate::infra::vault::clawhub::cli_install(&slug) {
+            Ok(()) => {
+                let _ = tx.send(AppEvent::TaskProgress {
+                    id: fetch_id,
+                    percent: 100,
+                });
+                let _ = tx.send(AppEvent::TaskCompleted {
+                    id: fetch_id,
+                    message: format!("Fetched '{}' from ClawHub", slug),
+                });
+            }
+            Err(e) => {
+                let _ = tx.send(AppEvent::TaskFailed {
+                    id: fetch_id,
+                    error: format!("Failed to fetch '{}': {}", slug, e),
+                });
+                let _ = tx.send(AppEvent::TaskFailed {
+                    id: install_id,
+                    error: "Cancelled — fetch failed".into(),
+                });
+                return;
+            }
+        }
+
+        let cache_dir = crate::domain::paths::clawhub_cache_dir();
+        let local = crate::infra::vault::local::LocalVaultAdapter::new("clawhub", cache_dir);
+        let feature = crate::infra::feature::skill::SkillFeatureSet;
+        use crate::app::ports::VaultPort;
+        let cached_pkgs = match local.list_packages(&feature) {
+            Ok(pkgs) => pkgs,
+            Err(e) => {
+                let _ = tx.send(AppEvent::TaskFailed {
+                    id: install_id,
+                    error: format!("Failed to scan cached package: {}", e),
+                });
+                return;
+            }
+        };
+
+        let cached_pkg = cached_pkgs.iter().find(|p| p.identity.name == slug);
+        if let Some(pkg) = cached_pkg {
+            let config = store.load(active_scope).unwrap_or_default();
+            let providers = active_providers(&registry, &config);
+            if providers.is_empty() {
+                let _ = tx.send(AppEvent::TaskFailed {
+                    id: install_id,
+                    error: "No active providers to install to".into(),
+                });
+                return;
+            }
+            let mut success = true;
+            for provider in providers {
+                if crate::app::actions::install_asset(active_scope, pkg, store.as_ref(), provider)
+                    .is_err()
+                {
+                    success = false;
+                }
+            }
+            let _ = tx.send(AppEvent::TaskProgress {
+                id: install_id,
+                percent: 100,
+            });
+            let _ = tx.send(AppEvent::TriggerReload);
+            if success {
+                let _ = tx.send(AppEvent::TaskCompleted {
+                    id: install_id,
+                    message: format!("Installed '{}' to {:?}", slug, active_scope),
+                });
+            } else {
+                let _ = tx.send(AppEvent::TaskFailed {
+                    id: install_id,
+                    error: format!("Failed to install '{}'", slug),
+                });
+            }
+        } else {
+            let _ = tx.send(AppEvent::TaskFailed {
+                id: install_id,
+                error: format!("Skill '{}' not found in ClawHub cache after fetch", slug),
+            });
+        }
+    });
     Ok(())
 }
 
