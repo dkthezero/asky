@@ -109,6 +109,9 @@ pub fn build_vaults(
                             ),
                         ));
                     }
+                    crate::domain::config::VaultConfig::Clawhub(_) => {
+                        // ClawHub vault support is not yet implemented
+                    }
                 }
             }
         }
@@ -203,6 +206,7 @@ pub fn build_vault_entries(
             .map(|v| match v {
                 crate::domain::config::VaultConfig::Local(_) => "local",
                 crate::domain::config::VaultConfig::Github(_) => "github",
+                crate::domain::config::VaultConfig::Clawhub(_) => "clawhub",
             })
             .unwrap_or("local")
             .to_string();

@@ -23,10 +23,14 @@ pub struct GithubVaultSource {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ClawHubVaultSource {}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum VaultConfig {
     Local(LocalVaultSource),
     Github(GithubVaultSource),
+    Clawhub(ClawHubVaultSource),
 }
 
 /// Key for tracking checked/installed items in AppState.
@@ -216,6 +220,26 @@ mod tests {
         let c = ConfigFile::default();
         assert!(c.vaults.is_empty());
         assert!(c.providers.is_empty());
+    }
+
+    #[test]
+    fn clawhub_vault_config_round_trip() {
+        let toml_str = r#"
+version = 1
+vaults = ["clawhub"]
+
+[clawhub.vault]
+type = "clawhub"
+"#;
+        let config: ConfigFile = toml::from_str(toml_str).unwrap();
+        assert!(config.vaults.contains(&"clawhub".to_string()));
+        let section = config.vault_defs.get("clawhub").unwrap();
+        assert!(matches!(
+            section.vault,
+            Some(VaultConfig::Clawhub(ClawHubVaultSource {}))
+        ));
+        let serialized = toml::to_string(&config).unwrap();
+        assert!(serialized.contains("type = \"clawhub\""));
     }
 
     #[test]

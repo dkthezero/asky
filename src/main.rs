@@ -248,6 +248,10 @@ async fn run_loop<B: ratatui::backend::Backend>(
                                 std::path::PathBuf::from(l.path),
                             ))
                         }
+                        crate::domain::config::VaultConfig::Clawhub(_) => {
+                            // ClawHub vault support is not yet implemented
+                            return;
+                        }
                     };
                     let id = crate::tui::app::NEXT_TASK_ID
                         .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
