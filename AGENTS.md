@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI coding agents (Claude Code, GitHub Copilot, Gemini CLI, etc.) when working with code in this repository.
 
 ## Build & Development Commands
 
@@ -49,6 +49,15 @@ TUI (tui/)  →  App (app/)  →  Domain (domain/)
 ### Vault Structure Convention
 
 Skills require `SKILL.md`, instructions require `AGENTS.md` as the marker file within their directory under `skills/` or `instructions/`.
+
+## Documentation Requirements
+
+When implementing a new feature or modifying an existing one, always update the corresponding documentation under `docs/product/features/`. Each feature area must have both files:
+
+- `prd.md` — Product requirements: what the feature does, user-facing behavior, functional requirements
+- `technical_design.md` — Technical design: trait contracts, data schemas, internal workflows, architecture rules
+
+If adding a new feature area, create a new directory under `docs/product/features/<feature-name>/` with both files.
 
 ## Working with Worktrees
 
