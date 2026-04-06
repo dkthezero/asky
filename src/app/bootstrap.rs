@@ -39,9 +39,29 @@ pub fn build_with_store(
     registry.register_feature_set(Box::new(StubFeatureSet::new("vault", "Vaults", "")));
 
     // Extract dynamic vaults from configurations
-    let global_config =
+    let mut global_config =
         crate::app::ports::ConfigStorePort::load(&store, crate::domain::scope::Scope::Global)
             .unwrap_or_default();
+
+    // Ensure ClawHub vault definition is always present (inactive by default)
+    if !global_config.vault_defs.contains_key("clawhub") {
+        global_config.vault_defs.insert(
+            "clawhub".to_string(),
+            crate::domain::config::VaultSection {
+                vault: Some(crate::domain::config::VaultConfig::Clawhub(
+                    crate::domain::config::ClawHubVaultSource {},
+                )),
+                skills: None,
+                instructions: None,
+            },
+        );
+        let _ = crate::app::ports::ConfigStorePort::save(
+            &store,
+            crate::domain::scope::Scope::Global,
+            &global_config,
+        );
+    }
+
     let workspace_config =
         crate::app::ports::ConfigStorePort::load(&store, crate::domain::scope::Scope::Workspace)
             .unwrap_or_default();
@@ -402,5 +422,37 @@ type = "clawhub"
         );
         let (registry, _scan, _store) = build_with_store(workspace_root, store).unwrap();
         assert!(registry.vaults.iter().any(|v| v.id() == "clawhub"));
+    }
+
+    #[test]
+    fn bootstrap_clawhub_vault_inactive_by_default() {
+        let dir = tempfile::tempdir().unwrap();
+        let workspace_root = dir.path().to_path_buf();
+        let agk_dir = workspace_root.join(".agk");
+        std::fs::create_dir_all(&agk_dir).unwrap();
+        let global_dir = dir.path().join("global");
+        std::fs::create_dir_all(&global_dir).unwrap();
+        let config_content = "version = 1\nvaults = []\n";
+        std::fs::write(global_dir.join("config.toml"), config_content).unwrap();
+        let store = TomlConfigStore::new(
+            global_dir.join("config.toml"),
+            agk_dir.join("config.toml"),
+        );
+        let (registry, _scan, store) = build_with_store(workspace_root, store).unwrap();
+        let global_config = crate::app::ports::ConfigStorePort::load(
+            &store,
+            crate::domain::scope::Scope::Global,
+        )
+        .unwrap();
+        let entries = build_vault_entries(&global_config, &global_config, &_scan, &registry);
+        let clawhub_entry = entries.iter().find(|e| e.id == "clawhub");
+        assert!(
+            clawhub_entry.is_some(),
+            "ClawHub should appear in vault entries"
+        );
+        assert!(
+            !clawhub_entry.unwrap().enabled,
+            "ClawHub should be inactive by default"
+        );
     }
 }
