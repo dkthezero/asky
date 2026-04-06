@@ -941,12 +941,14 @@ mod tests {
                     path: std::path::PathBuf::from("a"),
                     vault_id: "v".into(),
                     kind: crate::domain::asset::AssetKind::Skill,
+                    is_remote: false,
                 },
                 crate::domain::asset::ScannedPackage {
                     identity: crate::domain::identity::AssetIdentity::new("b", None, "hash"),
                     path: std::path::PathBuf::from("b"),
                     vault_id: "v".into(),
                     kind: crate::domain::asset::AssetKind::Skill,
+                    is_remote: false,
                 },
             ],
         );
@@ -1059,6 +1061,7 @@ mod tests {
             path: std::path::PathBuf::from("a"),
             vault_id: "v".into(),
             kind: crate::domain::asset::AssetKind::Skill,
+            is_remote: false,
         };
         state.packages.insert(0, vec![pkg.clone()]);
         state.tab_kinds = vec![crate::tui::app::TabKind::Asset];

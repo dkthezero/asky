@@ -13,6 +13,7 @@ pub struct ScannedPackage {
     pub path: PathBuf,
     pub vault_id: String,
     pub kind: AssetKind,
+    pub is_remote: bool,
 }
 
 /// Display-only struct for the Vaults tab.
@@ -94,8 +95,33 @@ mod tests {
             path: PathBuf::from("/skills/my-skill"),
             vault_id: "workspace".to_string(),
             kind: AssetKind::Skill,
+            is_remote: false,
         };
         assert_eq!(pkg.identity.name, "my-skill");
         assert_eq!(pkg.vault_id, "workspace");
+    }
+
+    #[test]
+    fn scanned_package_default_not_remote() {
+        let pkg = ScannedPackage {
+            identity: AssetIdentity::new("my-skill", None, "abc1234567"),
+            path: PathBuf::from("/skills/my-skill"),
+            vault_id: "workspace".to_string(),
+            kind: AssetKind::Skill,
+            is_remote: false,
+        };
+        assert!(!pkg.is_remote);
+    }
+
+    #[test]
+    fn scanned_package_remote_flag() {
+        let pkg = ScannedPackage {
+            identity: AssetIdentity::new("remote-skill", None, "0000000000"),
+            path: PathBuf::new(),
+            vault_id: "clawhub".to_string(),
+            kind: AssetKind::Skill,
+            is_remote: true,
+        };
+        assert!(pkg.is_remote);
     }
 }

@@ -204,6 +204,7 @@ mod tests {
             path: PathBuf::from("/skills").join(name),
             vault_id: "workspace".to_string(),
             kind: AssetKind::Skill,
+            is_remote: false,
         }
     }
 

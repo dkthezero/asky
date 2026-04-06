@@ -235,6 +235,7 @@ mod tests {
             path: std::path::PathBuf::from("/fake"),
             vault_id: "workspace".to_string(),
             kind,
+            is_remote: false,
         }
     }
 
@@ -343,6 +344,7 @@ mod tests {
             path: std::path::PathBuf::from("/fake"),
             vault_id: "workspace".to_string(),
             kind: AssetKind::Skill,
+            is_remote: false,
         };
         update_asset(Scope::Workspace, &pkg, &store, &provider).unwrap();
 
