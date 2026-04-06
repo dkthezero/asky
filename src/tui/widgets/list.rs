@@ -35,10 +35,16 @@ pub fn render(
                 &pkg.kind,
                 &pkg.identity.sha10,
             );
+            let style = if pkg.is_remote {
+                Style::default().fg(Color::DarkGray)
+            } else {
+                Style::default()
+            };
             ListItem::new(Line::from(format!(
                 "{} {:<32} {:<8} {}",
                 status, pkg.identity.name, version, pkg.vault_id
             )))
+            .style(style)
         })
         .collect();
 
