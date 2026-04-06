@@ -64,6 +64,7 @@ pub fn install_cli_via_homebrew() -> Result<()> {
 }
 
 /// Run `clawhub search <query>` and parse results into ScannedPackages.
+/// Output format per line: `slug  Display Name  (score)`
 pub fn cli_search(query: &str) -> Result<Vec<ScannedPackage>> {
     let output = std::process::Command::new("clawhub")
         .args(["search", query])
@@ -76,15 +77,17 @@ pub fn cli_search(query: &str) -> Result<Vec<ScannedPackage>> {
     let packages: Vec<ScannedPackage> = stdout
         .lines()
         .filter(|line| !line.trim().is_empty())
-        .map(|line| {
-            let name = line.trim().to_string();
-            ScannedPackage {
-                identity: crate::domain::identity::AssetIdentity::new(&name, None, "----------"),
+        .filter_map(|line| {
+            // Format: "slug  Display Name  (score)"
+            // Slug is the first token (no spaces), separated by 2+ spaces
+            let slug = line.split_whitespace().next()?;
+            Some(ScannedPackage {
+                identity: crate::domain::identity::AssetIdentity::new(slug, None, "----------"),
                 path: PathBuf::new(),
                 vault_id: "clawhub".to_string(),
                 kind: crate::domain::asset::AssetKind::Skill,
                 is_remote: true,
-            }
+            })
         })
         .collect();
     Ok(packages)

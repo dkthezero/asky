@@ -125,7 +125,10 @@ pub fn handle(
             KeyCode::Backspace => {
                 handle_backspace(state);
             }
-            KeyCode::Char(' ') if state.list_mode == ListMode::Normal => {
+            KeyCode::Char(' ')
+                if state.list_mode == ListMode::Normal
+                    || state.list_mode == ListMode::Searching =>
+            {
                 handle_space(state, ctx)?;
             }
             KeyCode::Enter if state.list_mode == ListMode::Normal => {
