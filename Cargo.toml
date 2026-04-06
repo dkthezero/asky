@@ -1,6 +1,6 @@
 [package]
 name = "agk"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["dkthezero"]
 description = "A terminal-based vault management tool"
