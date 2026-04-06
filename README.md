@@ -11,7 +11,7 @@ Manage vaults of reusable skills and instructions, then install them to Claude C
 ## Features
 
 - **Multi-provider support** — Install to Claude Code, GitHub Copilot, Gemini, Letta, Snowflake, Firebender, and AMP
-- **Local & GitHub vaults** — Source skills from local directories or any GitHub repository
+- **Local, GitHub & ClawHub vaults** — Source skills from local directories, GitHub repositories, or the [ClawHub](https://clawhub.ai) community marketplace
 - **Interactive TUI** — Browse, search, install, and update assets with keyboard navigation
 - **Change detection** — SHA-based hashing detects when vault assets have been updated
 - **Scoped configuration** — Global settings for vaults, workspace-level settings for providers and installed assets
@@ -51,6 +51,16 @@ agk
 3. Enter a local path (`./my-vault`) or GitHub URL (`owner/repo`)
 4. Follow the prompts for branch and subfolder
 
+### Browse & install from ClawHub
+
+[ClawHub](https://clawhub.ai) is a community marketplace for agent skills. agk integrates with it out of the box:
+
+1. Press `4` to switch to the Vaults tab — ClawHub appears as an inactive vault by default
+2. Press `Space` on ClawHub to activate it (agk will help you install the `clawhub` CLI via Homebrew if needed)
+3. Press `1` to switch to the Skills tab and start typing to search
+4. agk searches your local vaults and ClawHub in parallel — remote results appear in gray with owner, downloads, and star counts
+5. Press `Space` on a remote skill to install it
+
 ### Install a skill
 
 1. Press `1` to switch to the Skills tab
@@ -74,7 +84,7 @@ agk
 | `F4` | Refresh all vaults from source |
 | `F5` | Update all installed assets |
 | `Tab` | Toggle between Global and Workspace scope |
-| `Type` | Search/filter by name |
+| `Type` | Search/filter by name (searches ClawHub in parallel when active) |
 | `Esc` | Clear search / cancel / quit |
 
 ## Vault structure
@@ -105,6 +115,16 @@ version: 1.0.0
 # My Skill
 ...
 ```
+
+## ClawHub integration
+
+agk uses the [`clawhub` CLI](https://clawhub.ai) for all remote operations. When you activate the ClawHub vault, agk will:
+
+1. Check if `clawhub` is on your `$PATH`
+2. Offer to install it via Homebrew (`brew install clawhub`) if available
+3. Display a manual install link if Homebrew is not available
+
+Skills installed from ClawHub are cached in `~/.config/agk/clawhub/` and treated like any other vault source.
 
 ## Configuration
 
