@@ -62,6 +62,8 @@ pub struct AppState {
     pub esc_pressed_once: bool,
     pub remote_packages: Vec<ScannedPackage>,
     pub clawhub_searching: bool,
+    pub scroll_offset: usize,
+    pub scroll_tick: u8,
 }
 
 impl AppState {
@@ -97,6 +99,8 @@ impl AppState {
             esc_pressed_once: false,
             remote_packages: Vec::new(),
             clawhub_searching: false,
+            scroll_offset: 0,
+            scroll_tick: 0,
         }
     }
 
@@ -222,6 +226,7 @@ mod tests {
             vault_id: "workspace".to_string(),
             kind: AssetKind::Skill,
             is_remote: false,
+            remote_meta: None,
         }
     }
 
@@ -275,6 +280,7 @@ mod tests {
             vault_id: "clawhub".to_string(),
             kind: AssetKind::Skill,
             is_remote: true,
+            remote_meta: None,
         };
         state.remote_packages = vec![remote_pkg];
         let filtered = state.filtered_packages();
@@ -291,6 +297,7 @@ mod tests {
             vault_id: "clawhub".to_string(),
             kind: AssetKind::Skill,
             is_remote: true,
+            remote_meta: None,
         };
         state.remote_packages = vec![remote_pkg];
         let filtered = state.filtered_packages();

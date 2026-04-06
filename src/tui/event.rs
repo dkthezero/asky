@@ -35,6 +35,7 @@ pub enum AppEvent {
     ClawHubSearchResults {
         packages: Vec<crate::domain::asset::ScannedPackage>,
     },
+    Tick,
 }
 
 pub struct EventContext {
@@ -246,12 +247,16 @@ fn handle_navigation(state: &mut AppState, code: &KeyCode) {
         KeyCode::Up => {
             if state.selected_index > 0 {
                 state.selected_index -= 1;
+                state.scroll_offset = 0;
+                state.scroll_tick = 0;
             }
         }
         KeyCode::Down => {
             let count = state.list_length();
             if state.selected_index + 1 < count {
                 state.selected_index += 1;
+                state.scroll_offset = 0;
+                state.scroll_tick = 0;
             }
         }
         _ => {}
@@ -1177,6 +1182,7 @@ mod tests {
                     vault_id: "v".into(),
                     kind: crate::domain::asset::AssetKind::Skill,
                     is_remote: false,
+                    remote_meta: None,
                 },
                 crate::domain::asset::ScannedPackage {
                     identity: crate::domain::identity::AssetIdentity::new("b", None, "hash"),
@@ -1184,6 +1190,7 @@ mod tests {
                     vault_id: "v".into(),
                     kind: crate::domain::asset::AssetKind::Skill,
                     is_remote: false,
+                    remote_meta: None,
                 },
             ],
         );
@@ -1297,6 +1304,7 @@ mod tests {
             vault_id: "v".into(),
             kind: crate::domain::asset::AssetKind::Skill,
             is_remote: false,
+            remote_meta: None,
         };
         state.packages.insert(0, vec![pkg.clone()]);
         state.tab_kinds = vec![crate::tui::app::TabKind::Asset];

@@ -108,6 +108,18 @@ async fn main() -> Result<()> {
         }
     });
 
+    // Tick timer for scroll animation
+    let tx_tick = tx.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_millis(300));
+        loop {
+            interval.tick().await;
+            if tx_tick.send(tui::event::AppEvent::Tick).is_err() {
+                break;
+            }
+        }
+    });
+
     let ctx = tui::event::EventContext {
         store,
         registry,
@@ -230,6 +242,12 @@ async fn run_loop<B: ratatui::backend::Backend>(
             tui::event::AppEvent::ClawHubSearchResults { packages } => {
                 state.remote_packages = packages;
                 state.clawhub_searching = false;
+            }
+            tui::event::AppEvent::Tick => {
+                state.scroll_tick = state.scroll_tick.wrapping_add(1);
+                if state.scroll_tick.is_multiple_of(2) {
+                    state.scroll_offset = state.scroll_offset.wrapping_add(1);
+                }
             }
             tui::event::AppEvent::VaultRefreshRequired {
                 id: vault_id,
