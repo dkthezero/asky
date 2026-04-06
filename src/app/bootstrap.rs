@@ -110,7 +110,9 @@ pub fn build_vaults(
                         ));
                     }
                     crate::domain::config::VaultConfig::Clawhub(_) => {
-                        // ClawHub vault support is not yet implemented
+                        vaults.push(Box::new(
+                            crate::infra::vault::clawhub::ClawHubVaultAdapter::new(vault_id),
+                        ));
                     }
                 }
             }
@@ -376,5 +378,29 @@ path = "{}"
         let dir = tempfile::tempdir().unwrap();
         let (registry, _, _store) = build(dir.path().to_path_buf()).unwrap();
         assert!(!registry.feature_sets[1].is_stub());
+    }
+
+    #[test]
+    fn bootstrap_includes_clawhub_vault_entry() {
+        let dir = tempfile::tempdir().unwrap();
+        let workspace_root = dir.path().to_path_buf();
+        let agk_dir = workspace_root.join(".agk");
+        std::fs::create_dir_all(&agk_dir).unwrap();
+        let global_dir = dir.path().join("global");
+        std::fs::create_dir_all(&global_dir).unwrap();
+        let config_content = r#"
+version = 1
+vaults = []
+
+[clawhub.vault]
+type = "clawhub"
+"#;
+        std::fs::write(global_dir.join("config.toml"), config_content).unwrap();
+        let store = TomlConfigStore::new(
+            global_dir.join("config.toml"),
+            agk_dir.join("config.toml"),
+        );
+        let (registry, _scan, _store) = build_with_store(workspace_root, store).unwrap();
+        assert!(registry.vaults.iter().any(|v| v.id() == "clawhub"));
     }
 }
