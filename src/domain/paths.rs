@@ -27,9 +27,21 @@ pub fn global_vaults_dir() -> PathBuf {
     global_config_root().join("vaults")
 }
 
+/// Resolve the ClawHub cache directory: `<config_root>/clawhub`.
+pub fn clawhub_cache_dir() -> PathBuf {
+    global_config_root().join("clawhub")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_clawhub_cache_dir() {
+        let dir = clawhub_cache_dir();
+        assert!(dir.to_string_lossy().contains("agk"));
+        assert!(dir.to_string_lossy().ends_with("clawhub"));
+    }
 
     #[test]
     fn test_global_config_root() {
