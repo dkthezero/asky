@@ -86,6 +86,18 @@ pub fn handle(
 
         match &key.code {
             KeyCode::Char('y') | KeyCode::Char('Y')
+                if state.list_mode == ListMode::ConfirmClawHubInstall =>
+            {
+                return handle_clawhub_install_confirm(state, ctx);
+            }
+            KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc
+                if state.list_mode == ListMode::ConfirmClawHubInstall =>
+            {
+                state.list_mode = ListMode::Normal;
+                state.status_line = "Cancelled ClawHub CLI install".to_string();
+                return Ok(ControlFlow::Continue);
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y')
                 if state.list_mode == ListMode::ConfirmDetachVault =>
             {
                 return handle_detach_confirm(state, ctx);
@@ -143,6 +155,48 @@ pub fn handle(
             _ => {}
         }
     }
+
+    Ok(ControlFlow::Continue)
+}
+
+fn handle_clawhub_install_confirm(
+    state: &mut AppState,
+    ctx: &EventContext,
+) -> Result<ControlFlow> {
+    state.list_mode = ListMode::Normal;
+    state.status_line = "Installing ClawHub CLI via Homebrew...".to_string();
+
+    let store = ctx.store.clone();
+    let tx = ctx.tx.clone();
+    let id = crate::tui::app::NEXT_TASK_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
+    tokio::task::spawn_blocking(move || {
+        let _ = tx.send(AppEvent::TaskStarted {
+            id,
+            name: "Installing ClawHub CLI via Homebrew".into(),
+        });
+        match crate::infra::vault::clawhub::install_cli_via_homebrew() {
+            Ok(()) => {
+                // Now activate the vault
+                if let Ok(mut config) = store.load(crate::domain::scope::Scope::Global) {
+                    config.vaults.push("clawhub".to_string());
+                    let _ = store.save(crate::domain::scope::Scope::Global, &config);
+                }
+                let _ = tx.send(AppEvent::TaskProgress { id, percent: 100 });
+                let _ = tx.send(AppEvent::TriggerReload);
+                let _ = tx.send(AppEvent::TaskCompleted {
+                    id,
+                    message: "Installed ClawHub CLI and activated vault".into(),
+                });
+            }
+            Err(e) => {
+                let _ = tx.send(AppEvent::TaskFailed {
+                    id,
+                    error: format!("Failed to install ClawHub CLI: {}", e),
+                });
+            }
+        }
+    });
 
     Ok(ControlFlow::Continue)
 }
@@ -437,6 +491,37 @@ fn handle_space_vault(state: &mut AppState, ctx: &EventContext) -> Result<()> {
                 "Detach vault '{}'? This will hide all its uninstalled skills. [y/N]",
                 vault_id
             );
+        } else if vault.kind == "clawhub" {
+            if crate::infra::vault::clawhub::is_cli_available() {
+                // Activate directly
+                let store = ctx.store.clone();
+                let tx = ctx.tx.clone();
+                let id = crate::tui::app::NEXT_TASK_ID
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                tokio::task::spawn_blocking(move || {
+                    let _ = tx.send(AppEvent::TaskStarted {
+                        id,
+                        name: format!("Attaching vault '{}'", vault_id),
+                    });
+                    if let Ok(mut config) = store.load(crate::domain::scope::Scope::Global) {
+                        config.vaults.push(vault_id.clone());
+                        let _ = store.save(crate::domain::scope::Scope::Global, &config);
+                    }
+                    let _ = tx.send(AppEvent::TaskProgress { id, percent: 100 });
+                    let _ = tx.send(AppEvent::TriggerReload);
+                    let _ = tx.send(AppEvent::TaskCompleted {
+                        id,
+                        message: format!("Attached vault '{}'", vault_id),
+                    });
+                });
+            } else if crate::infra::vault::clawhub::is_homebrew_available() {
+                state.list_mode = ListMode::ConfirmClawHubInstall;
+                state.status_line =
+                    "ClawHub CLI not found. Install via Homebrew? [y/N]".to_string();
+            } else {
+                state.status_line =
+                    "ClawHub CLI not found. Install manually from https://clawhub.ai".to_string();
+            }
         } else {
             let store = ctx.store.clone();
             let tx = ctx.tx.clone();

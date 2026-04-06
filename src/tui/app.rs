@@ -18,6 +18,7 @@ pub enum ListMode {
     AttachVaultBranch,
     AttachVaultPath,
     ConfirmDetachVault,
+    ConfirmClawHubInstall,
 }
 
 #[derive(Clone, Debug, PartialEq)]
