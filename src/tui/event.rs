@@ -55,8 +55,8 @@ fn dispatch_clawhub_search(state: &mut AppState, ctx: &EventContext) {
     state.clawhub_searching = true;
     let query = state.search_query.clone();
     let tx = ctx.tx.clone();
-    tokio::task::spawn_blocking(move || {
-        match crate::infra::vault::clawhub::cli_search(&query) {
+    tokio::task::spawn_blocking(
+        move || match crate::infra::vault::clawhub::cli_search(&query) {
             Ok(packages) => {
                 let _ = tx.send(AppEvent::ClawHubSearchResults { packages });
             }
@@ -65,8 +65,8 @@ fn dispatch_clawhub_search(state: &mut AppState, ctx: &EventContext) {
                     packages: Vec::new(),
                 });
             }
-        }
-    });
+        },
+    );
 }
 
 pub fn handle(
@@ -159,10 +159,7 @@ pub fn handle(
     Ok(ControlFlow::Continue)
 }
 
-fn handle_clawhub_install_confirm(
-    state: &mut AppState,
-    ctx: &EventContext,
-) -> Result<ControlFlow> {
+fn handle_clawhub_install_confirm(state: &mut AppState, ctx: &EventContext) -> Result<ControlFlow> {
     state.list_mode = ListMode::Normal;
     state.status_line = "Installing ClawHub CLI via Homebrew...".to_string();
 
@@ -496,8 +493,8 @@ fn handle_space_vault(state: &mut AppState, ctx: &EventContext) -> Result<()> {
                 // Activate directly
                 let store = ctx.store.clone();
                 let tx = ctx.tx.clone();
-                let id = crate::tui::app::NEXT_TASK_ID
-                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                let id =
+                    crate::tui::app::NEXT_TASK_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                 tokio::task::spawn_blocking(move || {
                     let _ = tx.send(AppEvent::TaskStarted {
                         id,

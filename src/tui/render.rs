@@ -14,7 +14,10 @@ pub fn draw(frame: &mut Frame, state: &AppState) {
     let search_hint = if state.search_query.is_empty() {
         String::new()
     } else if state.clawhub_searching {
-        format!("  [ Search: {} ] (searching ClawHub...)", state.search_query)
+        format!(
+            "  [ Search: {} ] (searching ClawHub...)",
+            state.search_query
+        )
     } else {
         format!("  [ Search: {} ]", state.search_query)
     };

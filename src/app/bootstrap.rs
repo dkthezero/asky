@@ -416,10 +416,8 @@ vaults = []
 type = "clawhub"
 "#;
         std::fs::write(global_dir.join("config.toml"), config_content).unwrap();
-        let store = TomlConfigStore::new(
-            global_dir.join("config.toml"),
-            agk_dir.join("config.toml"),
-        );
+        let store =
+            TomlConfigStore::new(global_dir.join("config.toml"), agk_dir.join("config.toml"));
         let (registry, _scan, _store) = build_with_store(workspace_root, store).unwrap();
         assert!(registry.vaults.iter().any(|v| v.id() == "clawhub"));
     }
@@ -434,16 +432,12 @@ type = "clawhub"
         std::fs::create_dir_all(&global_dir).unwrap();
         let config_content = "version = 1\nvaults = []\n";
         std::fs::write(global_dir.join("config.toml"), config_content).unwrap();
-        let store = TomlConfigStore::new(
-            global_dir.join("config.toml"),
-            agk_dir.join("config.toml"),
-        );
+        let store =
+            TomlConfigStore::new(global_dir.join("config.toml"), agk_dir.join("config.toml"));
         let (registry, _scan, store) = build_with_store(workspace_root, store).unwrap();
-        let global_config = crate::app::ports::ConfigStorePort::load(
-            &store,
-            crate::domain::scope::Scope::Global,
-        )
-        .unwrap();
+        let global_config =
+            crate::app::ports::ConfigStorePort::load(&store, crate::domain::scope::Scope::Global)
+                .unwrap();
         let entries = build_vault_entries(&global_config, &global_config, &_scan, &registry);
         let clawhub_entry = entries.iter().find(|e| e.id == "clawhub");
         assert!(
