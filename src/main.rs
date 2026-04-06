@@ -108,6 +108,18 @@ async fn main() -> Result<()> {
         }
     });
 
+    // Tick timer for scroll animation
+    let tx_tick = tx.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_millis(300));
+        loop {
+            interval.tick().await;
+            if tx_tick.send(tui::event::AppEvent::Tick).is_err() {
+                break;
+            }
+        }
+    });
+
     let ctx = tui::event::EventContext {
         store,
         registry,
@@ -139,7 +151,11 @@ async fn main() -> Result<()> {
     }
     .await;
     disable_raw_mode()?;
-    setup_result
+
+    // Force exit to kill any lingering blocking background tasks
+    // (e.g. slow clawhub CLI calls) that would otherwise prevent shutdown.
+    let code = if setup_result.is_ok() { 0 } else { 1 };
+    std::process::exit(code);
 }
 
 async fn run_loop<B: ratatui::backend::Backend>(
@@ -227,6 +243,17 @@ async fn run_loop<B: ratatui::backend::Backend>(
                     .configs
                     .insert(crate::domain::scope::Scope::Workspace, workspace_config);
             }
+            tui::event::AppEvent::ClawHubSearchResults { packages, task_id } => {
+                state.remote_packages = packages;
+                state.active_tasks.remove(&task_id);
+                state.clawhub_search_task_id = None;
+            }
+            tui::event::AppEvent::Tick => {
+                state.scroll_tick = state.scroll_tick.wrapping_add(1);
+                if state.scroll_tick.is_multiple_of(2) {
+                    state.scroll_offset = state.scroll_offset.wrapping_add(1);
+                }
+            }
             tui::event::AppEvent::VaultRefreshRequired {
                 id: vault_id,
                 config: vault_config,
@@ -246,6 +273,11 @@ async fn run_loop<B: ratatui::backend::Backend>(
                             Box::new(crate::infra::vault::local::LocalVaultAdapter::new(
                                 vault_id.clone(),
                                 std::path::PathBuf::from(l.path),
+                            ))
+                        }
+                        crate::domain::config::VaultConfig::Clawhub(_) => {
+                            Box::new(crate::infra::vault::clawhub::ClawHubVaultAdapter::new(
+                                vault_id.clone(),
                             ))
                         }
                     };

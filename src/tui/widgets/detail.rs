@@ -28,7 +28,7 @@ pub fn render(
         None => vec![Line::from("  No item selected")],
         Some(pkg) => {
             let label = |s: &str| Span::styled(s.to_string(), Style::default().fg(Color::Yellow));
-            vec![
+            let mut lines = vec![
                 Line::from(vec![
                     label("Name:     "),
                     Span::raw(pkg.identity.name.clone()),
@@ -53,12 +53,36 @@ pub fn render(
                     label("Path:     "),
                     Span::raw(pkg.path.display().to_string()),
                 ]),
-                Line::from(Span::raw("")),
-                Line::from(vec![
-                    label("Identity: "),
-                    Span::raw(pkg.identity.to_string()),
-                ]),
-            ]
+            ];
+
+            if let Some(meta) = &pkg.remote_meta {
+                lines.push(Line::from(Span::raw("")));
+                lines.push(Line::from(vec![
+                    label("Owner:    "),
+                    Span::raw(meta.owner.clone()),
+                ]));
+                if !meta.summary.is_empty() {
+                    lines.push(Line::from(vec![
+                        label("Summary:  "),
+                        Span::raw(meta.summary.clone()),
+                    ]));
+                }
+                lines.push(Line::from(vec![
+                    label("Stats:    "),
+                    Span::raw(format!(
+                        "\u{2193} {}  \u{2605} {}",
+                        meta.downloads, meta.stars
+                    )),
+                ]));
+            }
+
+            lines.push(Line::from(Span::raw("")));
+            lines.push(Line::from(vec![
+                label("Identity: "),
+                Span::raw(pkg.identity.to_string()),
+            ]));
+
+            lines
         }
     };
 

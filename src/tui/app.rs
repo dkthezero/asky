@@ -18,6 +18,7 @@ pub enum ListMode {
     AttachVaultBranch,
     AttachVaultPath,
     ConfirmDetachVault,
+    ConfirmClawHubInstall,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -59,6 +60,10 @@ pub struct AppState {
     pub pending_vault_ref: String,
     pub pending_vault_path: String,
     pub esc_pressed_once: bool,
+    pub remote_packages: Vec<ScannedPackage>,
+    pub clawhub_search_task_id: Option<usize>,
+    pub scroll_offset: usize,
+    pub scroll_tick: u8,
 }
 
 impl AppState {
@@ -92,6 +97,10 @@ impl AppState {
             pending_vault_ref: String::new(),
             pending_vault_path: String::new(),
             esc_pressed_once: false,
+            remote_packages: Vec::new(),
+            clawhub_search_task_id: None,
+            scroll_offset: 0,
+            scroll_tick: 0,
         }
     }
 
@@ -104,13 +113,25 @@ impl AppState {
 
     pub fn filtered_packages(&self) -> Vec<&ScannedPackage> {
         let pkgs = self.active_packages();
-        if self.search_query.is_empty() {
-            return pkgs.iter().collect();
-        }
         let q = self.search_query.to_lowercase();
-        pkgs.iter()
-            .filter(|p| p.identity.name.to_lowercase().contains(&q))
-            .collect()
+        let mut result: Vec<&ScannedPackage> = if q.is_empty() {
+            pkgs.iter().collect()
+        } else {
+            pkgs.iter()
+                .filter(|p| p.identity.name.to_lowercase().contains(&q))
+                .collect()
+        };
+        // Merge remote ClawHub results, deduplicating by name (local wins)
+        if !self.search_query.is_empty() {
+            let local_names: std::collections::HashSet<&str> =
+                result.iter().map(|p| p.identity.name.as_str()).collect();
+            for remote_pkg in &self.remote_packages {
+                if !local_names.contains(remote_pkg.identity.name.as_str()) {
+                    result.push(remote_pkg);
+                }
+            }
+        }
+        result
     }
 
     pub fn list_length(&self) -> usize {
@@ -204,6 +225,8 @@ mod tests {
             path: PathBuf::from("/skills").join(name),
             vault_id: "workspace".to_string(),
             kind: AssetKind::Skill,
+            is_remote: false,
+            remote_meta: None,
         }
     }
 
@@ -245,6 +268,41 @@ mod tests {
         let mut s = state;
         s.search_query = "myskill".to_string();
         assert_eq!(s.filtered_packages().len(), 1);
+    }
+
+    #[test]
+    fn filtered_packages_merges_remote_results() {
+        let mut state = state_with_skills(vec![make_pkg("local-skill")]);
+        state.search_query = "skill".to_string();
+        let remote_pkg = ScannedPackage {
+            identity: AssetIdentity::new("remote-skill", None, "----------"),
+            path: PathBuf::new(),
+            vault_id: "clawhub".to_string(),
+            kind: AssetKind::Skill,
+            is_remote: true,
+            remote_meta: None,
+        };
+        state.remote_packages = vec![remote_pkg];
+        let filtered = state.filtered_packages();
+        assert_eq!(filtered.len(), 2);
+    }
+
+    #[test]
+    fn filtered_packages_deduplicates_remote() {
+        let mut state = state_with_skills(vec![make_pkg("same-skill")]);
+        state.search_query = "same".to_string();
+        let remote_pkg = ScannedPackage {
+            identity: AssetIdentity::new("same-skill", None, "----------"),
+            path: PathBuf::new(),
+            vault_id: "clawhub".to_string(),
+            kind: AssetKind::Skill,
+            is_remote: true,
+            remote_meta: None,
+        };
+        state.remote_packages = vec![remote_pkg];
+        let filtered = state.filtered_packages();
+        assert_eq!(filtered.len(), 1);
+        assert!(!filtered[0].is_remote);
     }
 
     #[test]

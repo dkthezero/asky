@@ -71,6 +71,8 @@ mod tests {
             path: pkg_dir,
             vault_id: "workspace".to_string(),
             kind,
+            is_remote: false,
+            remote_meta: None,
         }
     }
 

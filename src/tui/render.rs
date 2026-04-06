@@ -50,6 +50,7 @@ pub fn draw(frame: &mut Frame, state: &AppState) {
                 state.selected_index,
                 !is_live,
                 state.active_config(),
+                state.scroll_offset,
             );
             detail::render(
                 frame,

@@ -19,7 +19,7 @@ pub fn install_asset(
     }
     provider.install(pkg, scope)?;
     let section = config.vault_defs.entry(pkg.vault_id.clone()).or_default();
-    let identity_str = pkg.identity.to_string();
+    let identity_str = pkg.identity.to_config_string();
     match pkg.kind {
         AssetKind::Skill => {
             let bucket = section.skills.get_or_insert_with(AssetBucket::default);
@@ -51,7 +51,7 @@ pub fn remove_asset(
     provider.remove(identity, kind, scope)?;
     let mut config = store.load(scope)?;
     if let Some(section) = config.vault_defs.get_mut(vault_id) {
-        let identity_str = identity.to_string();
+        let identity_str = identity.to_config_string();
         match kind {
             AssetKind::Skill => {
                 if let Some(bucket) = section.skills.as_mut() {
@@ -235,6 +235,8 @@ mod tests {
             path: std::path::PathBuf::from("/fake"),
             vault_id: "workspace".to_string(),
             kind,
+            is_remote: false,
+            remote_meta: None,
         }
     }
 
@@ -343,6 +345,8 @@ mod tests {
             path: std::path::PathBuf::from("/fake"),
             vault_id: "workspace".to_string(),
             kind: AssetKind::Skill,
+            is_remote: false,
+            remote_meta: None,
         };
         update_asset(Scope::Workspace, &pkg, &store, &provider).unwrap();
 

@@ -17,10 +17,18 @@ impl AssetIdentity {
     }
 }
 
+impl AssetIdentity {
+    /// Serialization format for config files: `[name:version:sha10]`
+    pub fn to_config_string(&self) -> String {
+        let version = self.version.as_deref().unwrap_or("--");
+        format!("[{}:{}:{}]", self.name, version, self.sha10)
+    }
+}
+
 impl fmt::Display for AssetIdentity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let version = self.version.as_deref().unwrap_or("--");
-        write!(f, "[{}:{}:{}]", self.name, version, self.sha10)
+        let version = self.version.as_deref().unwrap_or(&self.sha10);
+        write!(f, "{}:{}", self.name, version)
     }
 }
 
@@ -31,13 +39,13 @@ mod tests {
     #[test]
     fn display_with_version() {
         let id = AssetIdentity::new("web-tool", Some("1.2.0".to_string()), "a13c9ef042");
-        assert_eq!(id.to_string(), "[web-tool:1.2.0:a13c9ef042]");
+        assert_eq!(id.to_string(), "web-tool:1.2.0");
     }
 
     #[test]
     fn display_without_version() {
         let id = AssetIdentity::new("local-script", None, "9ac00ff113");
-        assert_eq!(id.to_string(), "[local-script:--:9ac00ff113]");
+        assert_eq!(id.to_string(), "local-script:9ac00ff113");
     }
 
     #[test]

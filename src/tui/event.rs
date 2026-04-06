@@ -32,6 +32,11 @@ pub enum AppEvent {
         id: String,
         config: crate::domain::config::VaultConfig,
     },
+    ClawHubSearchResults {
+        packages: Vec<crate::domain::asset::ScannedPackage>,
+        task_id: usize,
+    },
+    Tick,
 }
 
 pub struct EventContext {
@@ -39,6 +44,28 @@ pub struct EventContext {
     pub registry: Arc<crate::app::registry::Registry>,
     pub tx: tokio::sync::mpsc::UnboundedSender<AppEvent>,
     pub workspace_root: std::path::PathBuf,
+}
+
+fn is_clawhub_active(ctx: &EventContext) -> bool {
+    ctx.store
+        .load(crate::domain::scope::Scope::Global)
+        .map(|c| c.vaults.contains(&"clawhub".to_string()))
+        .unwrap_or(false)
+}
+
+fn dispatch_clawhub_search(state: &mut AppState, ctx: &EventContext) {
+    let query = state.search_query.clone();
+    let tx = ctx.tx.clone();
+    let id = crate::tui::app::NEXT_TASK_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    state.clawhub_search_task_id = Some(id);
+    let _ = ctx.tx.send(AppEvent::TaskStarted {
+        id,
+        name: format!("Searching ClawHub '{}'", query),
+    });
+    tokio::task::spawn_blocking(move || {
+        let packages = crate::infra::vault::clawhub::cli_search(&query).unwrap_or_default();
+        let _ = tx.send(AppEvent::ClawHubSearchResults { packages, task_id: id });
+    });
 }
 
 pub fn handle(
@@ -57,6 +84,18 @@ pub fn handle(
         }
 
         match &key.code {
+            KeyCode::Char('y') | KeyCode::Char('Y')
+                if state.list_mode == ListMode::ConfirmClawHubInstall =>
+            {
+                return handle_clawhub_install_confirm(state, ctx);
+            }
+            KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc
+                if state.list_mode == ListMode::ConfirmClawHubInstall =>
+            {
+                state.list_mode = ListMode::Normal;
+                state.status_line = "Cancelled ClawHub CLI install".to_string();
+                return Ok(ControlFlow::Continue);
+            }
             KeyCode::Char('y') | KeyCode::Char('Y')
                 if state.list_mode == ListMode::ConfirmDetachVault =>
             {
@@ -85,7 +124,10 @@ pub fn handle(
             KeyCode::Backspace => {
                 handle_backspace(state);
             }
-            KeyCode::Char(' ') if state.list_mode == ListMode::Normal => {
+            KeyCode::Char(' ')
+                if state.list_mode == ListMode::Normal
+                    || state.list_mode == ListMode::Searching =>
+            {
                 handle_space(state, ctx)?;
             }
             KeyCode::Enter if state.list_mode == ListMode::Normal => {
@@ -104,11 +146,56 @@ pub fn handle(
                 let active_kind = state.tab_kinds.get(state.active_tab).copied();
                 if active_kind != Some(crate::tui::app::TabKind::Vault) {
                     apply_search_char(state, *c);
+                    if active_kind == Some(crate::tui::app::TabKind::Asset)
+                        && is_clawhub_active(ctx)
+                        && !state.search_query.is_empty()
+                    {
+                        dispatch_clawhub_search(state, ctx);
+                    }
                 }
             }
             _ => {}
         }
     }
+
+    Ok(ControlFlow::Continue)
+}
+
+fn handle_clawhub_install_confirm(state: &mut AppState, ctx: &EventContext) -> Result<ControlFlow> {
+    state.list_mode = ListMode::Normal;
+    state.status_line = "Installing ClawHub CLI via Homebrew...".to_string();
+
+    let store = ctx.store.clone();
+    let tx = ctx.tx.clone();
+    let id = crate::tui::app::NEXT_TASK_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
+    tokio::task::spawn_blocking(move || {
+        let _ = tx.send(AppEvent::TaskStarted {
+            id,
+            name: "Installing ClawHub CLI via Homebrew".into(),
+        });
+        match crate::infra::vault::clawhub::install_cli_via_homebrew() {
+            Ok(()) => {
+                // Now activate the vault
+                if let Ok(mut config) = store.load(crate::domain::scope::Scope::Global) {
+                    config.vaults.push("clawhub".to_string());
+                    let _ = store.save(crate::domain::scope::Scope::Global, &config);
+                }
+                let _ = tx.send(AppEvent::TaskProgress { id, percent: 100 });
+                let _ = tx.send(AppEvent::TriggerReload);
+                let _ = tx.send(AppEvent::TaskCompleted {
+                    id,
+                    message: "Installed ClawHub CLI and activated vault".into(),
+                });
+            }
+            Err(e) => {
+                let _ = tx.send(AppEvent::TaskFailed {
+                    id,
+                    error: format!("Failed to install ClawHub CLI: {}", e),
+                });
+            }
+        }
+    });
 
     Ok(ControlFlow::Continue)
 }
@@ -158,12 +245,16 @@ fn handle_navigation(state: &mut AppState, code: &KeyCode) {
         KeyCode::Up => {
             if state.selected_index > 0 {
                 state.selected_index -= 1;
+                state.scroll_offset = 0;
+                state.scroll_tick = 0;
             }
         }
         KeyCode::Down => {
             let count = state.list_length();
             if state.selected_index + 1 < count {
                 state.selected_index += 1;
+                state.scroll_offset = 0;
+                state.scroll_tick = 0;
             }
         }
         _ => {}
@@ -284,6 +375,10 @@ fn handle_backspace(state: &mut AppState) {
         state.search_query.pop();
         if state.search_query.is_empty() {
             state.list_mode = ListMode::Normal;
+            state.remote_packages.clear();
+            if let Some(id) = state.clawhub_search_task_id.take() {
+                state.active_tasks.remove(&id);
+            }
         }
         state.selected_index = 0;
     }
@@ -401,6 +496,37 @@ fn handle_space_vault(state: &mut AppState, ctx: &EventContext) -> Result<()> {
                 "Detach vault '{}'? This will hide all its uninstalled skills. [y/N]",
                 vault_id
             );
+        } else if vault.kind == "clawhub" {
+            if crate::infra::vault::clawhub::is_cli_available() {
+                // Activate directly
+                let store = ctx.store.clone();
+                let tx = ctx.tx.clone();
+                let id =
+                    crate::tui::app::NEXT_TASK_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                tokio::task::spawn_blocking(move || {
+                    let _ = tx.send(AppEvent::TaskStarted {
+                        id,
+                        name: format!("Attaching vault '{}'", vault_id),
+                    });
+                    if let Ok(mut config) = store.load(crate::domain::scope::Scope::Global) {
+                        config.vaults.push(vault_id.clone());
+                        let _ = store.save(crate::domain::scope::Scope::Global, &config);
+                    }
+                    let _ = tx.send(AppEvent::TaskProgress { id, percent: 100 });
+                    let _ = tx.send(AppEvent::TriggerReload);
+                    let _ = tx.send(AppEvent::TaskCompleted {
+                        id,
+                        message: format!("Attached vault '{}'", vault_id),
+                    });
+                });
+            } else if crate::infra::vault::clawhub::is_homebrew_available() {
+                state.list_mode = ListMode::ConfirmClawHubInstall;
+                state.status_line =
+                    "ClawHub CLI not found. Install via Homebrew? [y/N]".to_string();
+            } else {
+                state.status_line =
+                    "ClawHub CLI not found. Install manually from https://clawhub.ai".to_string();
+            }
         } else {
             let store = ctx.store.clone();
             let tx = ctx.tx.clone();
@@ -433,6 +559,9 @@ fn handle_space_asset(state: &mut AppState, ctx: &EventContext) -> Result<()> {
         filtered.get(state.selected_index).copied().cloned()
     };
     if let Some(pkg) = pkg_opt {
+        if pkg.is_remote {
+            return handle_install_remote_clawhub(state, ctx, &pkg);
+        }
         let is_installed = state.is_installed(&pkg.vault_id, &pkg.identity.name, &pkg.kind);
         let store = ctx.store.clone();
         let active_scope = state.active_scope;
@@ -512,6 +641,115 @@ fn handle_space_asset(state: &mut AppState, ctx: &EventContext) -> Result<()> {
             }
         });
     }
+    Ok(())
+}
+
+fn handle_install_remote_clawhub(
+    state: &mut AppState,
+    ctx: &EventContext,
+    pkg: &crate::domain::asset::ScannedPackage,
+) -> Result<()> {
+    let slug = pkg.identity.name.clone();
+    let store = ctx.store.clone();
+    let tx = ctx.tx.clone();
+    let registry = ctx.registry.clone();
+    let active_scope = state.active_scope;
+
+    let fetch_id = crate::tui::app::NEXT_TASK_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let install_id =
+        crate::tui::app::NEXT_TASK_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
+    let _ = tx.send(AppEvent::TaskStarted {
+        id: fetch_id,
+        name: format!("Fetching '{}' from ClawHub", slug),
+    });
+    let _ = tx.send(AppEvent::TaskStarted {
+        id: install_id,
+        name: format!("Installing '{}' to {:?}", slug, active_scope),
+    });
+
+    tokio::task::spawn_blocking(move || {
+        match crate::infra::vault::clawhub::cli_install(&slug) {
+            Ok(()) => {
+                let _ = tx.send(AppEvent::TaskProgress {
+                    id: fetch_id,
+                    percent: 100,
+                });
+                let _ = tx.send(AppEvent::TaskCompleted {
+                    id: fetch_id,
+                    message: format!("Fetched '{}' from ClawHub", slug),
+                });
+            }
+            Err(e) => {
+                let _ = tx.send(AppEvent::TaskFailed {
+                    id: fetch_id,
+                    error: format!("Failed to fetch '{}': {}", slug, e),
+                });
+                let _ = tx.send(AppEvent::TaskFailed {
+                    id: install_id,
+                    error: "Cancelled — fetch failed".into(),
+                });
+                return;
+            }
+        }
+
+        let cache_dir = crate::domain::paths::clawhub_cache_dir();
+        let local = crate::infra::vault::local::LocalVaultAdapter::new("clawhub", cache_dir);
+        let feature = crate::infra::feature::skill::SkillFeatureSet;
+        use crate::app::ports::VaultPort;
+        let cached_pkgs = match local.list_packages(&feature) {
+            Ok(pkgs) => pkgs,
+            Err(e) => {
+                let _ = tx.send(AppEvent::TaskFailed {
+                    id: install_id,
+                    error: format!("Failed to scan cached package: {}", e),
+                });
+                return;
+            }
+        };
+
+        let cached_pkg = cached_pkgs.iter().find(|p| p.identity.name == slug);
+        if let Some(pkg) = cached_pkg {
+            let config = store.load(active_scope).unwrap_or_default();
+            let providers = active_providers(&registry, &config);
+            if providers.is_empty() {
+                let _ = tx.send(AppEvent::TaskFailed {
+                    id: install_id,
+                    error: "No active providers to install to".into(),
+                });
+                return;
+            }
+            let mut success = true;
+            for provider in providers {
+                if crate::app::actions::install_asset(active_scope, pkg, store.as_ref(), provider)
+                    .is_err()
+                {
+                    success = false;
+                }
+            }
+            let _ = tx.send(AppEvent::TaskProgress {
+                id: install_id,
+                percent: 100,
+            });
+            let _ = tx.send(AppEvent::TriggerReload);
+            if success {
+                let _ = tx.send(AppEvent::TaskCompleted {
+                    id: install_id,
+                    message: format!("Installed '{}' to {:?}", slug, active_scope),
+                });
+            } else {
+                let _ = tx.send(AppEvent::TaskFailed {
+                    id: install_id,
+                    error: format!("Failed to install '{}'", slug),
+                });
+            }
+        } else {
+            let _ = tx.send(AppEvent::TaskFailed {
+                id: install_id,
+                error: format!("Skill '{}' not found in ClawHub cache after fetch", slug),
+            });
+        }
+    });
     Ok(())
 }
 
@@ -686,6 +924,10 @@ pub fn apply_esc(state: &mut AppState) {
     state.search_query.clear();
     state.list_mode = ListMode::Normal;
     state.selected_index = 0;
+    state.remote_packages.clear();
+    if let Some(id) = state.clawhub_search_task_id.take() {
+        state.active_tasks.remove(&id);
+    }
 }
 
 pub fn apply_scope_toggle(state: &mut AppState) {
@@ -941,12 +1183,16 @@ mod tests {
                     path: std::path::PathBuf::from("a"),
                     vault_id: "v".into(),
                     kind: crate::domain::asset::AssetKind::Skill,
+                    is_remote: false,
+                    remote_meta: None,
                 },
                 crate::domain::asset::ScannedPackage {
                     identity: crate::domain::identity::AssetIdentity::new("b", None, "hash"),
                     path: std::path::PathBuf::from("b"),
                     vault_id: "v".into(),
                     kind: crate::domain::asset::AssetKind::Skill,
+                    is_remote: false,
+                    remote_meta: None,
                 },
             ],
         );
@@ -1059,6 +1305,8 @@ mod tests {
             path: std::path::PathBuf::from("a"),
             vault_id: "v".into(),
             kind: crate::domain::asset::AssetKind::Skill,
+            is_remote: false,
+            remote_meta: None,
         };
         state.packages.insert(0, vec![pkg.clone()]);
         state.tab_kinds = vec![crate::tui::app::TabKind::Asset];
