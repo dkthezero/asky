@@ -7,6 +7,15 @@ pub enum AssetKind {
     Instruction,
 }
 
+/// Metadata from ClawHub for remote packages.
+#[derive(Debug, Clone, Default)]
+pub struct RemoteMetadata {
+    pub owner: String,
+    pub summary: String,
+    pub downloads: u64,
+    pub stars: u64,
+}
+
 #[derive(Debug, Clone)]
 pub struct ScannedPackage {
     pub identity: AssetIdentity,
@@ -14,6 +23,7 @@ pub struct ScannedPackage {
     pub vault_id: String,
     pub kind: AssetKind,
     pub is_remote: bool,
+    pub remote_meta: Option<RemoteMetadata>,
 }
 
 /// Display-only struct for the Vaults tab.
@@ -96,6 +106,7 @@ mod tests {
             vault_id: "workspace".to_string(),
             kind: AssetKind::Skill,
             is_remote: false,
+            remote_meta: None,
         };
         assert_eq!(pkg.identity.name, "my-skill");
         assert_eq!(pkg.vault_id, "workspace");
@@ -109,6 +120,7 @@ mod tests {
             vault_id: "workspace".to_string(),
             kind: AssetKind::Skill,
             is_remote: false,
+            remote_meta: None,
         };
         assert!(!pkg.is_remote);
     }
@@ -121,6 +133,7 @@ mod tests {
             vault_id: "clawhub".to_string(),
             kind: AssetKind::Skill,
             is_remote: true,
+            remote_meta: None,
         };
         assert!(pkg.is_remote);
     }

@@ -59,6 +59,7 @@ impl VaultPort for LocalVaultAdapter {
                 vault_id: self.id.clone(),
                 kind: feature.asset_kind(),
                 is_remote: false,
+                remote_meta: None,
             });
         }
 

@@ -64,6 +64,7 @@ pub fn install_cli_via_homebrew() -> Result<()> {
 }
 
 /// Run `clawhub search <query>` and parse results into ScannedPackages.
+/// For each result (up to 10), runs `clawhub inspect <slug> --json` to fetch metadata.
 /// Output format per line: `slug  Display Name  (score)`
 pub fn cli_search(query: &str) -> Result<Vec<ScannedPackage>> {
     let output = std::process::Command::new("clawhub")
@@ -74,27 +75,92 @@ pub fn cli_search(query: &str) -> Result<Vec<ScannedPackage>> {
         anyhow::bail!("clawhub search failed: {}", stderr);
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let packages: Vec<ScannedPackage> = stdout
+    let slugs: Vec<&str> = stdout
         .lines()
         .filter(|line| !line.trim().is_empty())
-        .filter_map(|line| {
-            // Format: "slug  Display Name  (score)"
-            // Slug is the first token (no spaces), separated by 2+ spaces
-            let slug = line.split_whitespace().next()?;
-            Some(ScannedPackage {
-                identity: crate::domain::identity::AssetIdentity::new(slug, None, "----------"),
-                path: PathBuf::new(),
-                vault_id: "clawhub".to_string(),
-                kind: crate::domain::asset::AssetKind::Skill,
-                is_remote: true,
-            })
-        })
+        .filter_map(|line| line.split_whitespace().next())
+        .take(10)
         .collect();
+
+    let mut packages = Vec::new();
+    for slug in slugs {
+        let (name, version, meta) = match inspect_slug(slug) {
+            Some(info) => info,
+            None => (slug.to_string(), None, None),
+        };
+        packages.push(ScannedPackage {
+            identity: crate::domain::identity::AssetIdentity::new(name, version, "----------"),
+            path: PathBuf::new(),
+            vault_id: "clawhub".to_string(),
+            kind: crate::domain::asset::AssetKind::Skill,
+            is_remote: true,
+            remote_meta: meta,
+        });
+    }
     Ok(packages)
 }
 
+/// Run `clawhub inspect <slug> --json` and parse owner, summary, stats, and version.
+/// Returns (display_name as "owner/slug", version, RemoteMetadata) or None on failure.
+fn inspect_slug(
+    slug: &str,
+) -> Option<(
+    String,
+    Option<String>,
+    Option<crate::domain::asset::RemoteMetadata>,
+)> {
+    let output = std::process::Command::new("clawhub")
+        .args(["inspect", slug, "--json"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).ok()?;
+
+    let owner = json
+        .pointer("/owner/handle")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let summary = json
+        .pointer("/skill/summary")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let downloads = json
+        .pointer("/skill/stats/downloads")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let stars = json
+        .pointer("/skill/stats/stars")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let version = json
+        .pointer("/latestVersion/version")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let display_name = if owner.is_empty() {
+        slug.to_string()
+    } else {
+        format!("{}/{}", owner, slug)
+    };
+
+    let meta = crate::domain::asset::RemoteMetadata {
+        owner,
+        summary,
+        downloads,
+        stars,
+    };
+
+    Some((display_name, version, Some(meta)))
+}
+
 /// Run `clawhub install <slug>` with workdir set to agk's clawhub cache.
-pub fn cli_install(slug: &str) -> Result<()> {
+/// Accepts `"owner/slug"` format — extracts just the slug for the CLI.
+pub fn cli_install(name: &str) -> Result<()> {
+    let slug = name.rsplit('/').next().unwrap_or(name);
     let cache_dir = crate::domain::paths::clawhub_cache_dir();
     std::fs::create_dir_all(&cache_dir)?;
     let status = std::process::Command::new("clawhub")
