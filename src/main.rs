@@ -227,6 +227,10 @@ async fn run_loop<B: ratatui::backend::Backend>(
                     .configs
                     .insert(crate::domain::scope::Scope::Workspace, workspace_config);
             }
+            tui::event::AppEvent::ClawHubSearchResults { packages } => {
+                state.remote_packages = packages;
+                state.clawhub_searching = false;
+            }
             tui::event::AppEvent::VaultRefreshRequired {
                 id: vault_id,
                 config: vault_config,

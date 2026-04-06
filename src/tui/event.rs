@@ -32,6 +32,9 @@ pub enum AppEvent {
         id: String,
         config: crate::domain::config::VaultConfig,
     },
+    ClawHubSearchResults {
+        packages: Vec<crate::domain::asset::ScannedPackage>,
+    },
 }
 
 pub struct EventContext {
@@ -39,6 +42,31 @@ pub struct EventContext {
     pub registry: Arc<crate::app::registry::Registry>,
     pub tx: tokio::sync::mpsc::UnboundedSender<AppEvent>,
     pub workspace_root: std::path::PathBuf,
+}
+
+fn is_clawhub_active(ctx: &EventContext) -> bool {
+    ctx.store
+        .load(crate::domain::scope::Scope::Global)
+        .map(|c| c.vaults.contains(&"clawhub".to_string()))
+        .unwrap_or(false)
+}
+
+fn dispatch_clawhub_search(state: &mut AppState, ctx: &EventContext) {
+    state.clawhub_searching = true;
+    let query = state.search_query.clone();
+    let tx = ctx.tx.clone();
+    tokio::task::spawn_blocking(move || {
+        match crate::infra::vault::clawhub::cli_search(&query) {
+            Ok(packages) => {
+                let _ = tx.send(AppEvent::ClawHubSearchResults { packages });
+            }
+            Err(_) => {
+                let _ = tx.send(AppEvent::ClawHubSearchResults {
+                    packages: Vec::new(),
+                });
+            }
+        }
+    });
 }
 
 pub fn handle(
@@ -104,6 +132,12 @@ pub fn handle(
                 let active_kind = state.tab_kinds.get(state.active_tab).copied();
                 if active_kind != Some(crate::tui::app::TabKind::Vault) {
                     apply_search_char(state, *c);
+                    if active_kind == Some(crate::tui::app::TabKind::Asset)
+                        && is_clawhub_active(ctx)
+                        && !state.search_query.is_empty()
+                    {
+                        dispatch_clawhub_search(state, ctx);
+                    }
                 }
             }
             _ => {}
@@ -284,6 +318,8 @@ fn handle_backspace(state: &mut AppState) {
         state.search_query.pop();
         if state.search_query.is_empty() {
             state.list_mode = ListMode::Normal;
+            state.remote_packages.clear();
+            state.clawhub_searching = false;
         }
         state.selected_index = 0;
     }
@@ -686,6 +722,8 @@ pub fn apply_esc(state: &mut AppState) {
     state.search_query.clear();
     state.list_mode = ListMode::Normal;
     state.selected_index = 0;
+    state.remote_packages.clear();
+    state.clawhub_searching = false;
 }
 
 pub fn apply_scope_toggle(state: &mut AppState) {
