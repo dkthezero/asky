@@ -237,6 +237,8 @@ mod tests {
             kind,
             is_remote: false,
             remote_meta: None,
+            requires: vec![],
+            requires_optional: vec![],
         }
     }
 
@@ -347,6 +349,8 @@ mod tests {
             kind: AssetKind::Skill,
             is_remote: false,
             remote_meta: None,
+            requires: vec![],
+            requires_optional: vec![],
         };
         update_asset(Scope::Workspace, &pkg, &store, &provider).unwrap();
 

@@ -24,6 +24,10 @@ pub struct ScannedPackage {
     pub kind: AssetKind,
     pub is_remote: bool,
     pub remote_meta: Option<RemoteMetadata>,
+    /// Dependencies declared in SKILL.md frontmatter (meta-skill support)
+    pub requires: Vec<String>,
+    /// Optional dependencies that don't fail if missing
+    pub requires_optional: Vec<String>,
 }
 
 /// Display-only struct for the Vaults tab.
@@ -107,6 +111,8 @@ mod tests {
             kind: AssetKind::Skill,
             is_remote: false,
             remote_meta: None,
+            requires: vec![],
+            requires_optional: vec![],
         };
         assert_eq!(pkg.identity.name, "my-skill");
         assert_eq!(pkg.vault_id, "workspace");
@@ -121,6 +127,8 @@ mod tests {
             kind: AssetKind::Skill,
             is_remote: false,
             remote_meta: None,
+            requires: vec![],
+            requires_optional: vec![],
         };
         assert!(!pkg.is_remote);
     }
@@ -134,6 +142,8 @@ mod tests {
             kind: AssetKind::Skill,
             is_remote: true,
             remote_meta: None,
+            requires: vec![],
+            requires_optional: vec![],
         };
         assert!(pkg.is_remote);
     }

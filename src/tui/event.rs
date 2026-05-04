@@ -1188,6 +1188,8 @@ mod tests {
                     kind: crate::domain::asset::AssetKind::Skill,
                     is_remote: false,
                     remote_meta: None,
+                    requires: vec![],
+                    requires_optional: vec![],
                 },
                 crate::domain::asset::ScannedPackage {
                     identity: crate::domain::identity::AssetIdentity::new("b", None, "hash"),
@@ -1196,6 +1198,8 @@ mod tests {
                     kind: crate::domain::asset::AssetKind::Skill,
                     is_remote: false,
                     remote_meta: None,
+                    requires: vec![],
+                    requires_optional: vec![],
                 },
             ],
         );
@@ -1310,6 +1314,8 @@ mod tests {
             kind: crate::domain::asset::AssetKind::Skill,
             is_remote: false,
             remote_meta: None,
+            requires: vec![],
+            requires_optional: vec![],
         };
         state.packages.insert(0, vec![pkg.clone()]);
         state.tab_kinds = vec![crate::tui::app::TabKind::Asset];

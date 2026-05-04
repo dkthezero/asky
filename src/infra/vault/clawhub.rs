@@ -95,6 +95,8 @@ pub fn cli_search(query: &str) -> Result<Vec<ScannedPackage>> {
             kind: crate::domain::asset::AssetKind::Skill,
             is_remote: true,
             remote_meta: meta,
+            requires: vec![],
+            requires_optional: vec![],
         });
     }
     Ok(packages)

@@ -2,6 +2,7 @@ use crate::app::ports::{FeatureSetPort, VaultPort};
 use crate::domain::asset::ScannedPackage;
 use crate::domain::hashing::compute_sha10;
 use crate::domain::identity::AssetIdentity;
+use crate::infra::feature;
 use anyhow::Result;
 use std::path::PathBuf;
 
@@ -53,6 +54,19 @@ impl VaultPort for LocalVaultAdapter {
                 .into_owned();
             let version = feature.extract_version(&path);
             let identity = AssetIdentity::new(name, version, sha10);
+            
+            // Parse frontmatter for dependencies (meta-skill support)
+            let mut requires = Vec::new();
+            let mut requires_optional = Vec::new();
+            if feature.asset_kind() == crate::domain::asset::AssetKind::Skill {
+                if let Ok(content) = std::fs::read_to_string(path.join("SKILL.md")) {
+                    if let Some(fm) = feature::extract_frontmatter(&content) {
+                        requires = fm.requires;
+                        requires_optional = fm.requires_optional;
+                    }
+                }
+            }
+            
             packages.push(ScannedPackage {
                 identity,
                 path,
@@ -60,6 +74,8 @@ impl VaultPort for LocalVaultAdapter {
                 kind: feature.asset_kind(),
                 is_remote: false,
                 remote_meta: None,
+                requires,
+                requires_optional,
             });
         }
 

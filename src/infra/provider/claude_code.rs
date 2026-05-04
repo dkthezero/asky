@@ -73,6 +73,8 @@ mod tests {
             kind,
             is_remote: false,
             remote_meta: None,
+            requires: vec![],
+            requires_optional: vec![],
         }
     }
 

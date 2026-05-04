@@ -227,6 +227,8 @@ mod tests {
             kind: AssetKind::Skill,
             is_remote: false,
             remote_meta: None,
+            requires: vec![],
+            requires_optional: vec![],
         }
     }
 
@@ -281,6 +283,8 @@ mod tests {
             kind: AssetKind::Skill,
             is_remote: true,
             remote_meta: None,
+            requires: vec![],
+            requires_optional: vec![],
         };
         state.remote_packages = vec![remote_pkg];
         let filtered = state.filtered_packages();
@@ -298,6 +302,8 @@ mod tests {
             kind: AssetKind::Skill,
             is_remote: true,
             remote_meta: None,
+            requires: vec![],
+            requires_optional: vec![],
         };
         state.remote_packages = vec![remote_pkg];
         let filtered = state.filtered_packages();
