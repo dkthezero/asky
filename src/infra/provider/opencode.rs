@@ -81,6 +81,15 @@ impl ProviderPort for OpenCodeProvider {
         "OpenCode"
     }
 
+    fn install_path_for(
+        &self,
+        identity: &AssetIdentity,
+        kind: &AssetKind,
+        scope: Scope,
+    ) -> Option<PathBuf> {
+        Some(self.asset_dir(&scope, kind, &identity.name))
+    }
+
     fn install(&self, pkg: &ScannedPackage, scope: Scope) -> Result<()> {
         let dest = self.asset_dir(&scope, &pkg.kind, &pkg.identity.name);
         copy_dir(&pkg.path, &dest)?;
@@ -139,7 +148,9 @@ impl McpProvider for OpenCodeProvider {
         if config.get("mcp").is_none() {
             config["mcp"] = serde_json::json!({});
         }
-        let mcp = config["mcp"].as_object_mut().unwrap();
+        let mcp = config["mcp"]
+            .as_object_mut()
+            .ok_or_else(|| anyhow::anyhow!("opencode.json 'mcp' key is not an object"))?;
 
         // Migrate: drop old nested "servers" key if present so we don't leave a
         // stale empty object that OpenCode rejects.

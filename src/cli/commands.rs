@@ -121,9 +121,7 @@ pub const EXIT_PARTIAL_SUCCESS: i32 = 3;
 
 #[derive(Debug, serde::Serialize)]
 struct SyncResult {
-    installed: Vec<String>,
     updated: Vec<String>,
-    removed: Vec<String>,
     skipped: Vec<String>,
     errors: Vec<String>,
 }
@@ -154,9 +152,7 @@ pub fn cmd_sync(
     }
 
     let mut result = SyncResult {
-        installed: vec![],
         updated: vec![],
-        removed: vec![],
         skipped: vec![],
         errors: vec![],
     };
@@ -214,8 +210,7 @@ pub fn cmd_sync(
 
     let exit_code = if result.errors.is_empty() {
         EXIT_SUCCESS
-    } else if result.installed.is_empty() && result.updated.is_empty() && result.skipped.is_empty()
-    {
+    } else if result.updated.is_empty() && result.skipped.is_empty() {
         EXIT_GENERAL_FAILURE
     } else {
         EXIT_PARTIAL_SUCCESS
@@ -228,7 +223,6 @@ pub fn cmd_sync(
         OutputMode::Quiet => {}
         _ => {
             println!("Sync complete:");
-            println!("  Installed: {}", result.installed.len());
             println!("  Updated:   {}", result.updated.len());
             println!("  Skipped:   {}", result.skipped.len());
             println!("  Errors:    {}", result.errors.len());
@@ -450,9 +444,10 @@ pub fn cmd_validate(
 
             let mut provider_checks = vec![];
             for provider in &providers {
+                let path = provider.install_path_for(&identity, &AssetKind::Skill, scope);
                 provider_checks.push(ProviderCheck {
                     provider: provider.name().to_string(),
-                    path_exists: true,
+                    path_exists: path.as_ref().map(|p| p.exists()).unwrap_or(false),
                 });
             }
 
@@ -479,9 +474,10 @@ pub fn cmd_validate(
 
             let mut provider_checks = vec![];
             for provider in &providers {
+                let path = provider.install_path_for(&identity, &AssetKind::Instruction, scope);
                 provider_checks.push(ProviderCheck {
                     provider: provider.name().to_string(),
-                    path_exists: true,
+                    path_exists: path.as_ref().map(|p| p.exists()).unwrap_or(false),
                 });
             }
 

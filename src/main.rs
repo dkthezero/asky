@@ -232,6 +232,12 @@ async fn run_loop<B: ratatui::backend::Backend>(
                     .insert(crate::domain::scope::Scope::Workspace, workspace_config);
 
                 state.mcp_state.refresh();
+
+                // Reload telemetry config so the Telemetry tab reflects latest state
+                let analytics_path = crate::domain::paths::analytics_path();
+                state.analytics_config =
+                    crate::domain::telemetry::AnalyticsConfig::load(&analytics_path)
+                        .unwrap_or_default();
             }
             tui::event::AppEvent::ClawHubSearchResults { packages, task_id } => {
                 state.remote_packages = packages;

@@ -80,6 +80,15 @@ impl ProviderPort for ClaudeCodeProvider {
         }
         Ok(())
     }
+
+    fn install_path_for(
+        &self,
+        identity: &AssetIdentity,
+        kind: &AssetKind,
+        scope: Scope,
+    ) -> Option<PathBuf> {
+        Some(self.asset_dir(&scope, kind, &identity.name))
+    }
 }
 
 impl McpProvider for ClaudeCodeProvider {
@@ -100,7 +109,9 @@ impl McpProvider for ClaudeCodeProvider {
         if config.get("mcpServers").is_none() {
             config["mcpServers"] = serde_json::json!({});
         }
-        let mcp_servers = config["mcpServers"].as_object_mut().unwrap();
+        let mcp_servers = config["mcpServers"]
+            .as_object_mut()
+            .ok_or_else(|| anyhow::anyhow!(".claude/mcp.json 'mcpServers' key is not an object"))?;
 
         let entry = serde_json::json!({
             "command": server.command,

@@ -149,7 +149,16 @@ pub fn default_parsers() -> Vec<Box<dyn LogParser>> {
 // Scan a single directory tree for new invocations
 // ---------------------------------------------------------------------------
 
+/// Scan a single directory tree, skipping files older than `config.settings.last_scan`
+/// to avoid double-counting historical entries on every tick.
 pub fn scan_directory(parser: &dyn LogParser, config: &mut AnalyticsConfig) {
+    let cutoff: Option<chrono::DateTime<chrono::Utc>> = config
+        .settings
+        .last_scan
+        .as_ref()
+        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.into());
+
     for dir in parser.log_directories() {
         if !dir.exists() {
             continue;
@@ -161,6 +170,17 @@ pub fn scan_directory(parser: &dyn LogParser, config: &mut AnalyticsConfig) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_file() {
+                // Skip files that haven't changed since last scan
+                if let Ok(meta) = std::fs::metadata(&path) {
+                    if let Ok(modified) = meta.modified() {
+                        if let Some(cutoff) = cutoff {
+                            let modified_dt = chrono::DateTime::<chrono::Utc>::from(modified);
+                            if modified_dt <= cutoff {
+                                continue;
+                            }
+                        }
+                    }
+                }
                 if let Ok(content) = std::fs::read_to_string(&path) {
                     for line in content.lines() {
                         if let Some(inv) = parser.parse_line(line) {

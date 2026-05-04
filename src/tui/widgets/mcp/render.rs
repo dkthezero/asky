@@ -172,8 +172,15 @@ pub fn render_detail(frame: &mut Frame, area: Rect, state: &McpState, active_sel
 
 fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max {
-        s.to_string()
-    } else {
-        format!("{}...", &s[..max])
+        return s.to_string();
     }
+    let mut end = max;
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    if end == 0 {
+        // max landed inside the first multi-byte char — count by chars instead
+        return s.chars().take(max).collect();
+    }
+    format!("{}...", &s[..end])
 }
