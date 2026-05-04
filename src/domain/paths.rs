@@ -32,6 +32,16 @@ pub fn clawhub_cache_dir() -> PathBuf {
     global_config_root().join("clawhub")
 }
 
+/// Resolve the analytics file path: `<config_root>/analytics.toml`.
+pub fn analytics_path() -> PathBuf {
+    global_config_root().join("analytics.toml")
+}
+
+/// Resolve the MCP registry file path: `<config_root>/mcp.toml`.
+pub fn mcp_path() -> PathBuf {
+    global_config_root().join("mcp.toml")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

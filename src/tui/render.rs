@@ -1,4 +1,4 @@
-use crate::tui::widgets::{detail, list, status, tabs};
+use crate::tui::widgets::{analytics, detail, list, mcp, status, tabs};
 use crate::tui::{app::AppState, layout};
 use ratatui::{
     style::{Color, Modifier, Style},
@@ -80,10 +80,55 @@ pub fn draw(frame: &mut Frame, state: &AppState) {
             let selected_provider = state.provider_entries.get(state.selected_index);
             detail::render_provider_detail(frame, layout.detail, selected_provider);
         }
+        TabKind::Mcp => {
+            let list_area = layout.list;
+            let detail_area = layout.detail;
+            // Build active provider list for checkbox rendering
+            let active_providers: Vec<crate::domain::asset::ProviderEntry> = state
+                .provider_entries
+                .iter()
+                .filter(|p| p.active)
+                .cloned()
+                .collect();
+            mcp::render::render(
+                frame,
+                list_area,
+                &state.mcp_state,
+                state.selected_index,
+                state.active_scope,
+                &active_providers,
+            );
+            mcp::render::render_detail(frame, detail_area, &state.mcp_state, state.selected_index);
+        }
+        TabKind::Analytics => {
+            let list_area = layout.list;
+            let detail_area = layout.detail;
+            analytics::render(
+                frame,
+                list_area,
+                &state.analytics_config,
+                state.selected_index,
+            );
+            analytics::render_detail(
+                frame,
+                detail_area,
+                &state.analytics_config,
+                state.selected_index,
+            );
+        }
     }
     let keybinds = match active_kind {
-        TabKind::Asset | TabKind::Provider => {
+        TabKind::Asset => {
             "[↑/↓] Move  [Space] Toggle  [Enter] Update  [F5] Update All  [F4] Refresh  [type] Search  [Esc]x2 Quit"
+        }
+        TabKind::Provider => {
+            "[↑/↓] Move  [Space] Toggle  [Enter] Update  [F4] Refresh  [Esc]x2 Quit"
+        }
+        TabKind::Mcp => {
+            "[↑/↓] Move  [F2] Add MCP  [Space] Enable  [Enter] Test  [Esc]x2 Quit"
+        }
+        TabKind::Analytics => {
+            "[↑/↓] Move  [F5] Refresh  [Esc]x2 Quit"
         }
         TabKind::Vault => {
             "[↑/↓] Move  [F2] Attach New  [Space] Toggle  [F4] Refresh  [Esc]x2 Quit"

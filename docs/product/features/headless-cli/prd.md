@@ -26,7 +26,7 @@ While `agk`'s TUI excels at discovery and interactive management, team workflows
 - **`--verbose` (`-v`):** Full debug output: vault scanning, hash computation, provider path resolution.
 - **`--json`:** Structured JSON output for every command, suitable for machine parsing.
 
-### Proposed Subcommands
+### Subcommands
 
 #### `agk sync [--global] [--dry-run]`
 - **Behavior:** Reads the active `.agk/config.toml` (or `~/.config/agk/config.toml` with `--global`), sparse-clones required vaults if needed, and ensures all configured assets are installed to their target providers.
@@ -53,8 +53,10 @@ While `agk`'s TUI excels at discovery and interactive management, team workflows
 
 #### `agk pack <identity> [--target <provider>]`
 - **Behavior:** Compiles the raw markdown and supporting files of a skill into a provider-specific distributable package.
-- **MVP target:** Claude Desktop zip bundle.
-- **Fast-follow:** JSON schema for Firebender, plain tarball for generic use.
+- **Targets:**
+  - `claude-desktop` — Claude Desktop zip bundle (✅ implemented)
+  - `firebender` — JSON schema for Firebender (🚧 stubbed; target exists but not fully wired)
+  - `tarball` — Plain tarball for generic use (✅ implemented)
 - **Output:** Writes to `./.agk/pack/<identity>-<target>.zip` (or prints to stdout with `--stdout`).
 
 ---
@@ -96,12 +98,13 @@ While `agk`'s TUI excels at discovery and interactive management, team workflows
 ---
 
 ## Acceptance Criteria
-- [ ] All four subcommands (`sync`, `install`, `validate`, `pack`) are implemented.
-- [ ] `--quiet`, `--verbose`, `--json` work consistently across subcommands.
-- [ ] Exit codes `0`, `1`, `2`, `3` are used correctly.
-- [ ] Headless commands never allocate a terminal alternate screen.
-- [ ] TUI still uses the same underlying pure async functions (no logic duplication).
-- [ ] `cargo test` includes at least one integration test per subcommand.
+- [x] All four subcommands (`sync`, `install`, `validate`, `pack`) are implemented.
+- [x] `--quiet`, `--verbose`, `--json` work consistently across subcommands.
+- [x] Exit codes `0`, `1`, `2`, `3` are used correctly.
+- [x] Headless commands never allocate a terminal alternate screen.
+- [x] TUI still uses the same underlying pure async functions (no logic duplication).
+- [x] `cargo test` includes at least one integration test per subcommand.
+- [ ] `pack` Firebender target fully wired (stub exists, needs serialization logic).
 
 ---
 

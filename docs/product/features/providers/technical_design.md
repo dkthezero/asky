@@ -15,6 +15,20 @@ pub trait ProviderPort: Send + Sync {
 }
 ```
 
+### McpProvider Trait (for providers that support MCP)
+Providers that support MCP configuration implement `McpProvider` in addition to `ProviderPort`:
+```rust
+pub trait McpProvider: Send + Sync {
+    fn provider_id(&self) -> &str;
+    fn supports_mcp(&self) -> bool;
+    fn mcp_config_path(&self, scope: Scope) -> Option<PathBuf>;
+    fn write_mcp_server(&self, server: &McpServer, scope: Scope) -> Result<()>;
+    fn remove_mcp_server(&self, name: &str, scope: Scope) -> Result<()>;
+}
+```
+
+**MCP-capable providers:** Claude Code, OpenCode.
+
 Similarly, the overarching abstraction logic acts to shield core components. The previous `ProviderAdapter` design heavily modeled these operations:
 ```rust
 trait ProviderAdapter {

@@ -33,13 +33,18 @@ pub fn build_with_store(
     let mut registry = Registry::new();
 
     // Feature sets — order defines tab order
-    // Tab 0: Vaults, Tab 1: Skills, Tab 2: Instructions, Tab 3: Providers
-    registry.register_feature_set(Box::new(StubFeatureSet::new("vault", "Vaults", "")));
+    // Data: [0] Skills, [1] MCP, [2] Instructions, [3] Providers, [4] Runs&Logs, [5] Vault
+    // Rendered: [1] Skills [2] MCP [3] Instructions [4] Providers [5] Runs&Logs    [0] Vault
     registry.register_feature_set(Box::new(SkillFeatureSet));
+    registry.register_feature_set(Box::new(StubFeatureSet::new("mcp", "MCP Servers", "")));
     registry.register_feature_set(Box::new(InstructionFeatureSet));
     registry.register_feature_set(Box::new(StubFeatureSet::new("provider", "Providers", "")));
-    // Tab 4: MCP Servers (placeholder)
-    registry.register_feature_set(Box::new(StubFeatureSet::new("mcp", "MCP Servers", "")));
+    registry.register_feature_set(Box::new(StubFeatureSet::new(
+        "runs_and_logs",
+        "Telemetry",
+        "",
+    )));
+    registry.register_feature_set(Box::new(StubFeatureSet::new("vault", "Vaults", "")));
 
     // Extract dynamic vaults from configurations
     let mut global_config =
@@ -170,6 +175,7 @@ pub fn filter_scan(
                     crate::domain::asset::AssetKind::Instruction => {
                         global_config.is_instruction_installed(&pkg.vault_id, &pkg.identity.name)
                     }
+                    crate::domain::asset::AssetKind::McpServer => false,
                 };
                 let is_ws = if let Some(ws) = workspace_config {
                     match pkg.kind {
@@ -179,6 +185,7 @@ pub fn filter_scan(
                         crate::domain::asset::AssetKind::Instruction => {
                             ws.is_instruction_installed(&pkg.vault_id, &pkg.identity.name)
                         }
+                        crate::domain::asset::AssetKind::McpServer => false,
                     }
                 } else {
                     false
@@ -303,6 +310,8 @@ pub fn build_tab_kinds(registry: &Registry) -> Vec<TabKind> {
         .map(|f| match f.kind_name() {
             "vault" => TabKind::Vault,
             "provider" => TabKind::Provider,
+            "mcp" => TabKind::Mcp,
+            "runs_and_logs" => TabKind::Analytics,
             _ => TabKind::Asset,
         })
         .collect()
@@ -319,10 +328,10 @@ mod tests {
     }
 
     #[test]
-    fn bootstrap_produces_five_tabs() {
+    fn bootstrap_produces_six_tabs() {
         let dir = tempfile::tempdir().unwrap();
         let (registry, _, _store) = build(dir.path().to_path_buf()).unwrap();
-        assert_eq!(registry.feature_sets.len(), 5);
+        assert_eq!(registry.feature_sets.len(), 6);
     }
 
     #[test]
@@ -350,8 +359,8 @@ path = "{}"
         let store =
             TomlConfigStore::new(global_dir.join("config.toml"), agk_dir.join("config.toml"));
         let (_, scan, _store) = build_with_store(workspace_root, store).unwrap();
-        // Skills is tab index 1 (after Vaults at index 0)
-        let ws_skills = scan.packages_by_tab[1]
+        // Skills is tab index 0 (first tab, numbered [1])
+        let ws_skills = scan.packages_by_tab[0]
             .iter()
             .filter(|p| p.vault_id == "workspace")
             .count();
@@ -362,8 +371,8 @@ path = "{}"
     fn bootstrap_skill_tab_is_live() {
         let dir = tempfile::tempdir().unwrap();
         let (registry, _, _store) = build(dir.path().to_path_buf()).unwrap();
-        // Skills is tab index 1 (after Vaults at index 0)
-        assert!(!registry.feature_sets[1].is_stub());
+        // Skills is tab index 0 (first tab, numbered [1])
+        assert!(!registry.feature_sets[0].is_stub());
     }
 
     #[test]
@@ -392,7 +401,7 @@ path = "{}"
         let store =
             TomlConfigStore::new(global_dir.join("config.toml"), agk_dir.join("config.toml"));
         let (_, scan, _store) = build_with_store(workspace_root, store).unwrap();
-        // Instructions is tab index 2 (after Vaults at 0, Skills at 1)
+        // Instructions is tab index 2 (0=Skills, 1=MCP, 2=Instructions)
         let ws_insts: Vec<_> = scan.packages_by_tab[2]
             .iter()
             .filter(|p| p.vault_id == "workspace")
@@ -405,7 +414,7 @@ path = "{}"
     fn bootstrap_instructions_tab_is_live() {
         let dir = tempfile::tempdir().unwrap();
         let (registry, _, _store) = build(dir.path().to_path_buf()).unwrap();
-        // Instructions is tab index 2
+        // Instructions is tab index 2 (0=Skills, 1=MCP, 2=Instructions)
         assert!(!registry.feature_sets[2].is_stub());
     }
 

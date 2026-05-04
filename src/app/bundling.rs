@@ -1,8 +1,10 @@
-use crate::app::ports::{ConfigStorePort, ProviderPort, VaultPort};
+#![allow(dead_code)]
+
+use crate::app::ports::{ConfigStorePort, ProviderPort};
 use crate::domain::asset::{AssetKind, ScannedPackage};
 use crate::domain::identity::AssetIdentity;
 use crate::domain::scope::Scope;
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use std::collections::{HashSet, VecDeque};
 
 /// A resolved dependency ready for installation.
@@ -69,7 +71,6 @@ pub fn resolve_dependencies(
     let mut queue: VecDeque<(ScannedPackage, Vec<String>)> = VecDeque::new();
     let mut result: Vec<DependencyResolution> = Vec::new();
     let mut visited: HashSet<(String, String, String)> = HashSet::new(); // (vault_id, name, sha10)
-    let mut branch_stack: Vec<String> = Vec::new();
 
     // Start with the root package
     queue.push_back((root.clone(), vec![root.identity.name.clone()]));
@@ -202,7 +203,6 @@ pub fn install_bundle(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::ports::{ConfigStorePort, ProviderPort};
     use crate::domain::asset::{AssetKind, ScannedPackage};
     use crate::domain::config::{AssetBucket, ConfigFile, VaultSection};
     use crate::domain::identity::AssetIdentity;

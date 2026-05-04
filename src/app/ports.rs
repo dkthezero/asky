@@ -1,6 +1,7 @@
 use crate::domain::asset::{AssetKind, ScannedPackage};
 use crate::domain::config::ConfigFile;
 use crate::domain::identity::AssetIdentity;
+use crate::domain::mcp::McpServer;
 use crate::domain::scope::Scope;
 use anyhow::Result;
 use std::path::{Path, PathBuf};
@@ -46,6 +47,16 @@ pub trait ProviderPort: Send + Sync {
     fn name(&self) -> &str;
     fn install(&self, pkg: &ScannedPackage, scope: Scope) -> Result<()>;
     fn remove(&self, identity: &AssetIdentity, kind: &AssetKind, scope: Scope) -> Result<()>;
+}
+
+/// Extension trait for providers that support MCP configuration.
+pub trait McpProvider: Send + Sync {
+    fn provider_id(&self) -> &str;
+    fn supports_mcp(&self) -> bool;
+    #[allow(dead_code)]
+    fn mcp_config_path(&self, scope: Scope) -> Option<PathBuf>;
+    fn write_mcp_server(&self, server: &McpServer, scope: Scope) -> Result<()>;
+    fn remove_mcp_server(&self, name: &str, scope: Scope) -> Result<()>;
 }
 
 #[cfg(test)]

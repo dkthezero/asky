@@ -8,6 +8,8 @@ pub enum TabKind {
     Asset,
     Vault,
     Provider,
+    Mcp,
+    Analytics,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -19,6 +21,13 @@ pub enum ListMode {
     AttachVaultPath,
     ConfirmDetachVault,
     ConfirmClawHubInstall,
+    /// MCP server registration modal sub-steps
+    RegisterMcpStepName,
+    RegisterMcpStepCommand,
+    RegisterMcpStepArgs,
+    RegisterMcpStepTransport,
+    RegisterMcpStepDescription,
+    ConfirmMcpTest,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -64,6 +73,14 @@ pub struct AppState {
     pub clawhub_search_task_id: Option<usize>,
     pub scroll_offset: usize,
     pub scroll_tick: u8,
+    pub analytics_config: crate::domain::telemetry::AnalyticsConfig,
+    pub mcp_state: crate::tui::widgets::mcp::McpState,
+    // MCP registration pending fields (for modal)
+    pub pending_mcp_name: String,
+    pub pending_mcp_command: String,
+    pub pending_mcp_args: String,
+    pub pending_mcp_transport: String,
+    pub pending_mcp_description: String,
 }
 
 impl AppState {
@@ -101,6 +118,13 @@ impl AppState {
             clawhub_search_task_id: None,
             scroll_offset: 0,
             scroll_tick: 0,
+            analytics_config: crate::domain::telemetry::AnalyticsConfig::default(),
+            mcp_state: crate::tui::widgets::mcp::McpState::default(),
+            pending_mcp_name: String::new(),
+            pending_mcp_command: String::new(),
+            pending_mcp_args: String::new(),
+            pending_mcp_transport: String::new(),
+            pending_mcp_description: String::new(),
         }
     }
 
@@ -138,6 +162,7 @@ impl AppState {
         match self.tab_kinds.get(self.active_tab) {
             Some(TabKind::Vault) => self.vault_entries.len(),
             Some(TabKind::Provider) => self.provider_entries.len(),
+            Some(TabKind::Mcp) => self.mcp_state.servers_list().len(),
             _ => self.filtered_packages().len(),
         }
     }
@@ -168,6 +193,7 @@ impl AppState {
         match kind {
             AssetKind::Skill => config.is_skill_installed(vault_id, name),
             AssetKind::Instruction => config.is_instruction_installed(vault_id, name),
+            AssetKind::McpServer => false,
         }
     }
 
@@ -206,6 +232,17 @@ impl AppState {
         matches!(
             self.list_mode,
             ListMode::AttachVault | ListMode::AttachVaultBranch | ListMode::AttachVaultPath
+        )
+    }
+
+    pub fn is_register_mcp_mode(&self) -> bool {
+        matches!(
+            self.list_mode,
+            ListMode::RegisterMcpStepName
+                | ListMode::RegisterMcpStepCommand
+                | ListMode::RegisterMcpStepArgs
+                | ListMode::RegisterMcpStepTransport
+                | ListMode::RegisterMcpStepDescription
         )
     }
 }
@@ -348,22 +385,25 @@ mod tests {
     fn tab_kind_vaults_and_providers() {
         let mut state = AppState::new(
             vec![
-                "Vaults".into(),
                 "Skills".into(),
+                "MCP Servers".into(),
                 "Instructions".into(),
                 "Providers".into(),
+                "Vaults".into(),
             ],
-            vec![true, true, true, true],
+            vec![true, true, true, true, true],
             HashMap::new(),
         );
         state.tab_kinds = vec![
-            TabKind::Vault,
             TabKind::Asset,
+            TabKind::Mcp,
             TabKind::Asset,
             TabKind::Provider,
+            TabKind::Vault,
         ];
-        assert_eq!(state.tab_kinds[0], TabKind::Vault);
-        assert_eq!(state.tab_kinds[1], TabKind::Asset);
-        assert_eq!(state.tab_kinds[3], TabKind::Provider);
+        assert_eq!(state.tab_kinds[0], TabKind::Asset); // Skills
+        assert_eq!(state.tab_kinds[1], TabKind::Mcp); // MCP
+        assert_eq!(state.tab_kinds[3], TabKind::Provider); // Providers
+        assert_eq!(state.tab_kinds[4], TabKind::Vault); // Vault
     }
 }

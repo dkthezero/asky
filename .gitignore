@@ -3,3 +3,5 @@ target/
 .DS_Store
 docs/superpowers/
 .agk/
+opencode.json
+.idea/

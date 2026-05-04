@@ -6,59 +6,52 @@
 
 ## Overview
 
-Currently, users must install individual skills one by one. A meta-skill (or "skill pack") is a single `SKILL.md` that declares a list of dependencies. When installed, `agk` recursively resolves and installs the entire dependency tree. This enables tech leads to create standardized "way of work" packages that junior engineers can deploy with a single command.
+Currently, users must install individual skills one by one. A meta-skill (or "skill pack") is a single `SKILL.md` that declares a list of dependencies in its YAML frontmatter. When installed, `agk` recursively resolves and installs the entire dependency tree. This enables tech leads to create standardized "way of work" packages that junior engineers can deploy with a single command.
 
 ---
 
 ## Functional Requirements
 
 ### Dependency Declaration
-- Extend `SKILL.md` YAML frontmatter to support a `requires:` array.
-- Each entry is an asset identity: `vault/name` or `vault/name:version`.
+- `SKILL.md` YAML frontmatter supports `requires:` array.
+- Each entry is an asset identity: `vault/name` (version optional; agk resolves latest).
 - Optional: `requires_optional:` for soft dependencies that are installed only if available (no failure if missing).
+- Example:
+  ```yaml
+  ---
+  name: frontend-engineer-pack
+  version: "1.0.0"
+  description: "A meta-bundle of skills optimized for React and CSS workflows."
+  requires:
+    - clawhub/react-parser
+    - clawhub/css-linter
+    - internal-vault/component-generator
+  requires_optional:
+    - clawhub/storybook-scaffold
+  ---
+  ```
 
-### Recursive Installation
-- When `agk` processes an install for an asset with `requires:`, it resolves each dependency against configured vaults and pushes them onto an installation queue.
-- Installation is depth-first, parallel where possible (subject to provider I/O limits).
-- The parent meta-skill is considered "installed" only when all required children succeed.
+### Dependency Resolution
+- **BFS (Breadth-First Search)** traversal of the dependency tree.
+- Returns a queue in installation order (parents first, then children breadth-first).
+- Queue items contain the resolved `ScannedPackage` with full identity info.
 
 ### Circular Dependency Guard
-- Track the active installation branch (`Vec<String>` of names).
-- If a dependency resolves to a name already in the branch, abort with a clear error:
+- Tracks the active resolution path (`Vec<String>` of names).
+- If a dependency resolves to a name already in the branch, aborts with a clear error:
   ```
-  Error: Circular dependency detected
-    frontend-engineer-pack
-    → react-parser
-    → component-generator
-    → frontend-engineer-pack (cycle)
+  Circular dependency detected: frontend-engineer-pack → react-parser → component-generator → frontend-engineer-pack
   ```
 
 ### Diamond Dependency Deduplication
-- If two sibling skills both require the same grandchild, the grandchild is installed only once.
-- Deduplication is keyed by `(vault, name, sha10)`. If the target sha10 matches the already-installed version, skip.
+- If two sibling skills both require the same grandchild, the grandchild is queued only once.
+- Deduplication is keyed by `(vault_id, name, sha10)`.
+- If the target sha10 matches the already-queued version, skip.
 
 ### Scope Inheritance
 - A meta-skill installed in **Global** scope installs its children in **Global** scope.
 - A meta-skill installed in **Workspace** scope installs its children in **Workspace** scope.
 - No cross-scope leakage.
-
----
-
-## YAML Parsing Schema
-
-```yaml
----
-name: frontend-engineer-pack
-version: "1.0.0"
-description: "A meta-bundle of skills optimized for React and CSS workflows."
-requires:
-  - clawhub/react-parser
-  - clawhub/css-linter
-  - internal-vault/component-generator
-requires_optional:
-  - clawhub/storybook-scaffold
----
-```
 
 ---
 
@@ -69,41 +62,40 @@ requires_optional:
 | Scenario | Expected UX |
 |----------|-------------|
 | Tech lead creates a pack | Writes a `SKILL.md` with `requires:` and pushes it to the team vault. |
-| Junior engineer onboarding | Opens TUI → Skills tab → finds `Acme-Company-Pack` → presses `Space`. TUI shows a macro-progress bar: "Installing pack (3/7)…" with child tasks listed below. |
-| Circular dependency encountered | TUI detail pane shows a red error banner with the exact cycle path. Install button is disabled. |
-| Diamond dependency | User installs `frontend-engineer-pack`. `react-parser` and `css-linter` both require `dom-utils`. `dom-utils` installs once. Progress bar correctly counts 3/3, not 4/4. |
+| Junior engineer onboarding | TUI Skills tab → finds `Acme-Company-Pack` → presses `Space`. Background tasks show progress for each dependency. |
+| Circular dependency encountered | TUI detail pane or CLI shows a red error with the exact cycle path. |
+| Diamond dependency | User installs `frontend-engineer-pack`. `react-parser` and `css-linter` both require `dom-utils`. `dom-utils` installs once. |
 
 ### 🤖 AI Agent User
 
 | Scenario | Expected UX |
 |----------|-------------|
-| Agent installs a pack | `agk install acme/frontend-pack --json` returns a tree: `{"pack": "frontend-pack", "installed": 7, "skipped": 1, "failed": 0, "tree": [...]}` |
-| Agent validates a pack | `agk validate` checks that all `requires:` entries are resolvable. If a vault is missing, returns exit code `2` with the missing identity. |
+| Agent installs a pack | `agk install acme/frontend-pack --json` returns structured install results per asset. |
+| Agent validates a pack | `agk validate` checks that installed assets match their source vault hashes. |
 
 ### 🏭 CI/CD User
 
 | Scenario | Expected UX |
 |----------|-------------|
-| Team pack is versioned | `agk validate` in CI ensures the `requires:` list contains no broken or dangling references before the pack is published. |
+| Team pack is versioned | `agk validate` in CI ensures installed skills match source vault hashes. |
 | Onboarding script | `agk install acme/onboarding-pack --global --quiet` in a team setup script. Exit `0` = new machine is ready. |
 
 ---
 
 ## Non-Goals
 - Semver range resolution (`^1.0.0`, `>=2.0.0`). agk uses `sha10` as the source of truth, not version ranges. The `requires:` array specifies exact identities or relies on vault default resolution.
-- Nested meta-skills within meta-skills beyond depth 3 (defensible limit to prevent runaway installs).
+- Nested meta-skills beyond depth 3 (defensible limit to prevent runaway installs).
 - Auto-update of child dependencies when the parent pack is updated. Updating a pack reinstalls children based on the pack's current `requires:` list.
 
 ---
 
 ## Acceptance Criteria
-- [ ] `SKILL.md` frontmatter parser reads `requires:` and `requires_optional:`.
-- [ ] Recursive installation uses pure async functions from P1 (Headless CLI).
-- [ ] Circular dependencies are detected and rejected with a clear error path.
-- [ ] Diamond dependencies are deduplicated by `(vault, name, sha10)`.
-- [ ] TUI shows a macro-progress bar for pack installation with child task increments.
-- [ ] `--json` output for `agk install` includes the dependency tree.
-- [ ] `agk validate` detects unresolvable `requires:` entries.
+- [x] `SKILL.md` frontmatter parser reads `requires:` and `requires_optional:`.
+- [x] BFS resolution with cycle detection.
+- [x] Diamond deduplication by `(vault, name, sha10)`.
+- [ ] TUI macro-progress bar for pack installation with child task increments (background tasks cover basic progress; dedicated pack progress UI is future work).
+- [ ] `--json` output for `agk install` includes the full dependency tree (basic install results returned; tree serialization is future work).
+- [ ] `agk validate` detects unresolvable `requires:` entries (validate checks installed assets, not frontmatter dependencies — future work).
 
 ---
 

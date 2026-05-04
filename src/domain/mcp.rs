@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -20,7 +22,7 @@ pub struct McpServer {
     pub activation: HashMap<String, McpActivation>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct McpActivation {
     #[serde(default)]
     pub global: bool,

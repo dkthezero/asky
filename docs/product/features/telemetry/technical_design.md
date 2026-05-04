@@ -6,7 +6,7 @@ A passive, local-only analytics system that scans provider log directories to in
 
 ## Architecture Rules
 
-1. **Opt-in only.** Default is disabled. First visit to the analytics tab prompts for consent.
+1. **Enabled by default (opt-out).** Analytics collection starts automatically. Users can disable via `agk telemetry disable` or by setting `enabled = false` in `analytics.toml`.
 2. **Best-effort parsing.** If a log directory is missing or a format changes, silently skip. Never hard-fail.
 3. **Background only.** The scanner runs in a low-priority tokio task. Never blocks the render loop.
 4. **Privacy by design.** `analytics.toml` is local-only. No telemetry endpoints, no aggregation.

@@ -35,6 +35,7 @@ pub fn install_asset(
                 bucket.items.push(identity_str);
             }
         }
+        AssetKind::McpServer => {}
     }
     store.save(scope, &config)
 }
@@ -63,6 +64,7 @@ pub fn remove_asset(
                     bucket.items.retain(|s| s != &identity_str);
                 }
             }
+            &AssetKind::McpServer => {}
         }
     }
     store.save(scope, &config)
@@ -130,6 +132,7 @@ pub fn update_asset(
                     });
                 }
             }
+            AssetKind::McpServer => {}
         }
     }
     store.save(scope, &config)?;

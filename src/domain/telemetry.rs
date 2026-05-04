@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -27,7 +29,7 @@ impl Default for AnalyticsSettings {
 }
 
 fn default_enabled() -> bool {
-    false
+    true
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -72,9 +74,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_is_disabled() {
+    fn default_is_enabled() {
         let config = AnalyticsConfig::default();
-        assert!(!config.settings.enabled);
+        assert!(config.settings.enabled);
     }
 
     #[test]

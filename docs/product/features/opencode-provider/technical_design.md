@@ -55,11 +55,23 @@ struct OpenCodeSkillRef {
 
 ## Trait Contracts
 
-Uses existing `ProviderPort`:
+Uses existing `ProviderPort` and `McpProvider`:
 ```rust
 fn install(&self, pkg: &ScannedPackage, scope: Scope) -> Result<()>;
 fn remove(&self, identity: &AssetIdentity, kind: &AssetKind, scope: Scope) -> Result<()>;
+
+// MCP support (McpProvider trait)
+fn write_mcp_server(&self, server: &McpServer, scope: Scope) -> Result<()>;
+fn remove_mcp_server(&self, name: &str, scope: Scope) -> Result<()>;
 ```
+
+**MCP Schema (OpenCode):**
+- Writes flat `mcp.<name>` entries to `opencode.json` (not nested `mcp.servers`).
+- Required fields: `type` ("local" or "remote"), `enabled` (boolean).
+- Local: `{ "type": "local", "command": "...", "args": [...], "env": {...}, "enabled": true }`
+- Remote (SSE): `{ "type": "remote", "url": "...", "enabled": true }`
+- On remove: drops the server entry. If `mcp` becomes empty, drops the entire `mcp` key to avoid schema validation errors.
+- **Migration:** On write, drops any stale `mcp.servers` key (from earlier schema iteration).
 
 ## Module Structure
 

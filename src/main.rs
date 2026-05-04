@@ -104,6 +104,13 @@ async fn main() -> Result<()> {
         }
     });
 
+    // Telemetry background scanner
+    let analytics_path = crate::domain::paths::analytics_path();
+    let scanner = crate::infra::telemetry::scanner::Scanner::new(analytics_path);
+    tokio::spawn(async move {
+        crate::infra::telemetry::scanner::run(scanner).await;
+    });
+
     let ctx = tui::event::EventContext {
         store,
         registry,
@@ -223,6 +230,8 @@ async fn run_loop<B: ratatui::backend::Backend>(
                 state
                     .configs
                     .insert(crate::domain::scope::Scope::Workspace, workspace_config);
+
+                state.mcp_state.refresh();
             }
             tui::event::AppEvent::ClawHubSearchResults { packages, task_id } => {
                 state.remote_packages = packages;

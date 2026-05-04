@@ -2,7 +2,7 @@ use crate::app::bootstrap;
 use crate::app::ports::{ConfigStorePort, ProviderPort};
 use crate::cli::entry::{Cli, Commands, PackTarget, ScopeArg};
 use crate::domain::asset::{AssetKind, ScannedPackage};
-use crate::domain::config::{parse_identity, AssetBucket, ConfigFile};
+use crate::domain::config::ConfigFile;
 use crate::domain::identity::AssetIdentity;
 use crate::domain::scope::Scope;
 use anyhow::{Context, Result};
@@ -182,7 +182,6 @@ pub fn cmd_sync(
                 &providers,
             ) {
                 Ok(action) => match action {
-                    SyncAction::Installed => result.installed.push(identity.name.clone()),
                     SyncAction::Updated => result.updated.push(identity.name.clone()),
                     SyncAction::UpToDate => result.skipped.push(identity.name.clone()),
                 },
@@ -205,7 +204,6 @@ pub fn cmd_sync(
                 &providers,
             ) {
                 Ok(action) => match action {
-                    SyncAction::Installed => result.installed.push(identity.name.clone()),
                     SyncAction::Updated => result.updated.push(identity.name.clone()),
                     SyncAction::UpToDate => result.skipped.push(identity.name.clone()),
                 },
@@ -246,7 +244,6 @@ pub fn cmd_sync(
 }
 
 enum SyncAction {
-    Installed,
     Updated,
     UpToDate,
 }
@@ -750,43 +747,189 @@ pub fn run(cli: Cli, workspace: &std::path::Path) -> Result<i32> {
                 ref description,
                 no_test,
             } => {
-                println!(
-                    "MCP Add: name={}, command={}, transport={}",
-                    name, command, transport
-                );
-                if !no_test {
-                    println!("  (Connection test would run here)");
+                let mode = OutputMode::from_cli(&cli);
+                match crate::infra::mcp::register(
+                    name,
+                    command,
+                    args.as_deref(),
+                    env.as_deref(),
+                    transport,
+                    description.as_deref(),
+                ) {
+                    Ok(server) => {
+                        println_if_not_quiet(
+                            &mode,
+                            &format!(
+                                "Registered MCP server '{}' ({})",
+                                server.name, server.command
+                            ),
+                        );
+                        if !no_test {
+                            println_if_not_quiet(&mode, "Testing connection...");
+                            let rt = tokio::runtime::Runtime::new()?;
+                            match rt.block_on(crate::infra::mcp::test_server(name)) {
+                                Ok(()) => println_if_not_quiet(
+                                    &mode,
+                                    &format!("MCP server '{}' tested successfully", name),
+                                ),
+                                Err(e) => {
+                                    eprintln_if_not_quiet(
+                                        &mode,
+                                        &format!("MCP test failed: {}", e),
+                                    );
+                                    return Ok(EXIT_GENERAL_FAILURE);
+                                }
+                            }
+                        }
+                        Ok(EXIT_SUCCESS)
+                    }
+                    Err(e) => {
+                        eprintln_if_not_quiet(&mode, &format!("Failed to register: {}", e));
+                        Ok(EXIT_GENERAL_FAILURE)
+                    }
                 }
-                Ok(EXIT_SUCCESS)
             }
             crate::cli::entry::McpCommands::Enable {
                 ref name,
                 ref provider,
                 scope,
             } => {
-                println!(
-                    "MCP Enable: name={}, provider={}, scope={:?}",
-                    name, provider, scope
-                );
-                Ok(EXIT_SUCCESS)
+                let mode = OutputMode::from_cli(&cli);
+                let scope = resolve_scope(*scope);
+                let providers = crate::infra::mcp::build_mcp_providers(&workspace);
+                match crate::infra::mcp::enable(name, provider, scope, &providers) {
+                    Ok(()) => {
+                        println_if_not_quiet(
+                            &mode,
+                            &format!("Enabled MCP server '{}' for {}", name, provider),
+                        );
+                        Ok(EXIT_SUCCESS)
+                    }
+                    Err(e) => {
+                        eprintln_if_not_quiet(&mode, &format!("Enable failed: {}", e));
+                        Ok(EXIT_GENERAL_FAILURE)
+                    }
+                }
             }
             crate::cli::entry::McpCommands::Disable {
                 ref name,
                 ref provider,
                 scope,
             } => {
-                println!(
-                    "MCP Disable: name={}, provider={}, scope={:?}",
-                    name, provider, scope
-                );
-                Ok(EXIT_SUCCESS)
+                let mode = OutputMode::from_cli(&cli);
+                let scope = resolve_scope(*scope);
+                let providers = crate::infra::mcp::build_mcp_providers(&workspace);
+                match crate::infra::mcp::disable(name, provider, scope, &providers) {
+                    Ok(()) => {
+                        println_if_not_quiet(
+                            &mode,
+                            &format!("Disabled MCP server '{}' for {}", name, provider),
+                        );
+                        Ok(EXIT_SUCCESS)
+                    }
+                    Err(e) => {
+                        eprintln_if_not_quiet(&mode, &format!("Disable failed: {}", e));
+                        Ok(EXIT_GENERAL_FAILURE)
+                    }
+                }
             }
-            crate::cli::entry::McpCommands::List { ref provider } => {
-                println!("MCP List: provider_filter={:?}", provider);
+            crate::cli::entry::McpCommands::List { provider: _ } => {
+                let mode = OutputMode::from_cli(&cli);
+                let path = crate::domain::paths::mcp_path();
+                let registry = crate::domain::mcp::McpRegistry::load(&path).unwrap_or_default();
+                let mut items: Vec<&crate::domain::mcp::McpServer> =
+                    registry.servers.values().collect();
+                items.sort_by(|a, b| a.name.cmp(&b.name));
+
+                if matches!(mode, OutputMode::Json) {
+                    let json: Vec<serde_json::Value> = items
+                        .iter()
+                        .map(|s| {
+                            serde_json::json!({
+                                "name": s.name,
+                                "command": s.command,
+                                "transport": match s.transport {
+                                    crate::domain::mcp::McpTransport::Stdio => "stdio",
+                                    crate::domain::mcp::McpTransport::Sse { .. } => "sse",
+                                },
+                                "tested": s.tested,
+                                "tested_at": s.tested_at,
+                            })
+                        })
+                        .collect();
+                    println!("{}", serde_json::to_string_pretty(&json)?);
+                } else {
+                    if items.is_empty() {
+                        println_if_not_quiet(&mode, "No MCP servers registered.");
+                    } else {
+                        for s in items {
+                            let tested = if s.tested { "[✓]" } else { "[ ]" };
+                            println_if_not_quiet(
+                                &mode,
+                                &format!("{} {} ({:?})", tested, s.name, s.transport),
+                            );
+                        }
+                    }
+                }
                 Ok(EXIT_SUCCESS)
             }
             crate::cli::entry::McpCommands::Test { ref name } => {
-                println!("MCP Test: name={}", name);
+                let mode = OutputMode::from_cli(&cli);
+                println_if_not_quiet(&mode, &format!("Testing MCP server '{}'...", name));
+                let rt = tokio::runtime::Runtime::new()?;
+                match rt.block_on(crate::infra::mcp::test_server(name)) {
+                    Ok(()) => {
+                        println_if_not_quiet(&mode, &format!("MCP server '{}' is healthy", name));
+                        Ok(EXIT_SUCCESS)
+                    }
+                    Err(e) => {
+                        eprintln_if_not_quiet(&mode, &format!("Test failed: {}", e));
+                        Ok(EXIT_GENERAL_FAILURE)
+                    }
+                }
+            }
+        },
+
+        Some(Commands::Telemetry { ref command }) => match command {
+            crate::cli::entry::TelemetryCommands::Enable => {
+                let path = crate::domain::paths::analytics_path();
+                let mut scanner = crate::infra::telemetry::scanner::Scanner::new(path);
+                scanner.enable();
+                println_if_not_quiet(
+                    &OutputMode::from_cli(&cli),
+                    "Telemetry enabled. Background scanner started.",
+                );
+                Ok(EXIT_SUCCESS)
+            }
+            crate::cli::entry::TelemetryCommands::Disable => {
+                let path = crate::domain::paths::analytics_path();
+                let mut scanner = crate::infra::telemetry::scanner::Scanner::new(path);
+                scanner.disable();
+                println_if_not_quiet(&OutputMode::from_cli(&cli), "Telemetry disabled.");
+                Ok(EXIT_SUCCESS)
+            }
+            crate::cli::entry::TelemetryCommands::Status => {
+                let path = crate::domain::paths::analytics_path();
+                let scanner = crate::infra::telemetry::scanner::Scanner::new(path);
+                let status = scanner.status();
+                let mode = OutputMode::from_cli(&cli);
+                if matches!(mode, OutputMode::Json) {
+                    println!("{}", serde_json::to_string_pretty(&status)?);
+                } else {
+                    println_if_not_quiet(
+                        &mode,
+                        &format!(
+                            "Telemetry: {} | Skills tracked: {} | Last scan: {}",
+                            if status.enabled {
+                                "enabled"
+                            } else {
+                                "disabled"
+                            },
+                            status.skills_tracked,
+                            status.last_scan.as_deref().unwrap_or("never")
+                        ),
+                    );
+                }
                 Ok(EXIT_SUCCESS)
             }
         },

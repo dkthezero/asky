@@ -87,6 +87,12 @@ pub enum Commands {
         #[command(subcommand)]
         command: McpCommands,
     },
+
+    /// Manage telemetry and usage analytics
+    Telemetry {
+        #[command(subcommand)]
+        command: TelemetryCommands,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -162,6 +168,18 @@ pub enum McpCommands {
         /// Server name
         name: String,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum TelemetryCommands {
+    /// Enable telemetry collection
+    Enable,
+
+    /// Disable telemetry collection
+    Disable,
+
+    /// Show telemetry status
+    Status,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]

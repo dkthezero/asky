@@ -286,5 +286,6 @@ fn install_status(
                 "[ ]"
             }
         }
+        AssetKind::McpServer => "[MCP]",
     }
 }
