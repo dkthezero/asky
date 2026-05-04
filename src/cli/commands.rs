@@ -750,7 +750,10 @@ pub fn run(cli: Cli, workspace: &std::path::Path) -> Result<i32> {
                 ref description,
                 no_test,
             } => {
-                println!("MCP Add: name={}, command={}, transport={}", name, command, transport);
+                println!(
+                    "MCP Add: name={}, command={}, transport={}",
+                    name, command, transport
+                );
                 if !no_test {
                     println!("  (Connection test would run here)");
                 }
@@ -763,9 +766,7 @@ pub fn run(cli: Cli, workspace: &std::path::Path) -> Result<i32> {
             } => {
                 println!(
                     "MCP Enable: name={}, provider={}, scope={:?}",
-                    name,
-                    provider,
-                    scope
+                    name, provider, scope
                 );
                 Ok(EXIT_SUCCESS)
             }
@@ -776,9 +777,7 @@ pub fn run(cli: Cli, workspace: &std::path::Path) -> Result<i32> {
             } => {
                 println!(
                     "MCP Disable: name={}, provider={}, scope={:?}",
-                    name,
-                    provider,
-                    scope
+                    name, provider, scope
                 );
                 Ok(EXIT_SUCCESS)
             }

@@ -7,12 +7,14 @@ This file provides guidance to AI coding agents (Claude Code, GitHub Copilot, Ge
 ```bash
 cargo build              # Build
 cargo run                # Run TUI
-cargo test               # Run all tests (112 tests)
-cargo test <test_name>   # Run a single test
-cargo fmt --check        # Check formatting (CI enforced)
+cargo test               # Run all tests
+
+cargo fmt --check        # Check formatting (CI enforced - MUST PASS)
 cargo fmt                # Auto-format
 cargo clippy -- -D warnings  # Lint (treat warnings as errors)
 ```
+
+> **Formatting is enforced.** Run `cargo fmt` before every commit. CI will reject unformatted code.
 
 CI (.github/workflows/ci.yml) runs `cargo check`, `cargo fmt --check`, and `cargo test --verbose` on push to master and PRs.
 

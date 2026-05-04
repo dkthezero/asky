@@ -57,11 +57,7 @@ impl AnalyticsConfig {
         Ok(())
     }
 
-    pub fn increment_invocation(
-        &mut self,
-        skill_name: &str,
-        provider_id: &str,
-    ) {
+    pub fn increment_invocation(&mut self, skill_name: &str, provider_id: &str) {
         let entry = self.skills.entry(skill_name.to_string()).or_default();
         entry.total_invocations += 1;
         entry.last_used = Some(chrono::Utc::now().to_rfc3339());
