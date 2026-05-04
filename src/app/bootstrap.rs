@@ -88,6 +88,9 @@ pub fn build_with_store(
     registry.register_provider(Box::new(
         crate::infra::provider::claude_code::ClaudeCodeProvider::new(workspace_root.clone()),
     ));
+    registry.register_provider(Box::new(
+        crate::infra::provider::opencode::OpenCodeProvider::new(workspace_root.clone()),
+    ));
 
     // At bootstrap, Active Scope vaults are exclusively mapped from Global config physically.
     let active_vaults = build_vaults(&global_config, &workspace_root);

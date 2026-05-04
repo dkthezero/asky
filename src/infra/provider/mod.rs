@@ -5,4 +5,5 @@ pub(crate) mod firebender;
 pub(crate) mod gemini;
 pub(crate) mod github;
 pub(crate) mod letta;
+pub(crate) mod opencode;
 pub(crate) mod snowflake;
