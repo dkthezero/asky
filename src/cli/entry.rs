@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -9,6 +9,18 @@ use clap::{Parser, Subcommand};
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
+
+    /// Suppress all non-error output
+    #[arg(short, long, global = true)]
+    pub quiet: bool,
+
+    /// Verbose debug output
+    #[arg(short, long, global = true)]
+    pub verbose: bool,
+
+    /// Output structured JSON
+    #[arg(long, global = true)]
+    pub json: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -19,6 +31,78 @@ pub enum Commands {
         #[arg(short, long)]
         global: bool,
     },
+
+    /// Synchronize installed assets with config (install missing, update outdated)
+    Sync {
+        /// Force global scope
+        #[arg(short, long)]
+        global: bool,
+
+        /// Only show what would change, without modifying anything
+        #[arg(short, long)]
+        dry_run: bool,
+    },
+
+    /// Install a specific asset by identity
+    Install {
+        /// Asset identity: [vault/]name[:version]
+        identity: String,
+
+        /// Target scope
+        #[arg(short, long, value_enum)]
+        scope: Option<ScopeArg>,
+
+        /// Only show what would change
+        #[arg(short, long)]
+        dry_run: bool,
+
+        /// Limit to a specific provider
+        #[arg(short, long)]
+        provider: Option<String>,
+    },
+
+    /// Validate installed assets against source vaults
+    Validate {
+        /// Target scope
+        #[arg(short, long, value_enum)]
+        scope: Option<ScopeArg>,
+    },
+
+    /// Pack a skill into a provider-specific distributable
+    Pack {
+        /// Asset identity
+        identity: String,
+
+        /// Target provider format
+        #[arg(short, long, value_enum, default_value = "claude-desktop")]
+        target: PackTarget,
+
+        /// Write to stdout instead of file
+        #[arg(long)]
+        stdout: bool,
+    },
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum ScopeArg {
+    Global,
+    Workspace,
+}
+
+impl ScopeArg {
+    pub fn to_domain_scope(&self) -> crate::domain::scope::Scope {
+        match self {
+            ScopeArg::Global => crate::domain::scope::Scope::Global,
+            ScopeArg::Workspace => crate::domain::scope::Scope::Workspace,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum PackTarget {
+    ClaudeDesktop,
+    Firebender,
+    Tarball,
 }
 
 pub fn parse() -> Cli {

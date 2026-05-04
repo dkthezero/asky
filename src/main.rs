@@ -15,39 +15,23 @@ use ratatui::{backend::CrosstermBackend, Terminal};
 use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
-use tokio::sync::mpsc; // Using futures StreamExt
+use tokio::sync::mpsc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = cli::entry::parse();
-    if let Some(cli::entry::Commands::Clean { global }) = cli.command {
-        let dir = if global {
-            crate::domain::paths::global_config_root()
-        } else {
-            std::env::current_dir()?.join(".agk")
-        };
+    let workspace = std::env::current_dir()?;
 
-        if dir.exists() {
-            println!(
-                "This will securely remove all configuration in: {}",
-                dir.display()
-            );
-            println!("Are you sure you want to proceed? [y/N]");
-            let mut input = String::new();
-            std::io::stdin().read_line(&mut input)?;
-            if input.trim().eq_ignore_ascii_case("y") {
-                std::fs::remove_dir_all(&dir)?;
-                println!("Cleaned up {}", dir.display());
-            } else {
-                println!("Operation cancelled");
-            }
-        } else {
-            println!("Nothing to clean at {}", dir.display());
+    // If a subcommand other than Clean is provided, run headless CLI
+    if cli.command.is_some() {
+        let code = cli::commands::run(cli, &workspace)?;
+        if code != cli::commands::EXIT_SUCCESS {
+            std::process::exit(code);
         }
         return Ok(());
     }
 
-    let workspace = std::env::current_dir()?;
+    // No subcommand — launch TUI
     let workspace_for_ctx = workspace.clone();
     let (registry, scan, store) = app::bootstrap::build(workspace)?;
 
@@ -135,7 +119,7 @@ async fn main() -> Result<()> {
         let _ = tui::event::refresh_all_vaults(registry_boot, tx_boot, "Auto-").await;
     });
 
-    // Terminal setup — disable raw mode if anything fails after enabling it
+    // Terminal setup
     enable_raw_mode()?;
     let setup_result = async {
         let mut stdout = io::stdout();
@@ -152,8 +136,6 @@ async fn main() -> Result<()> {
     .await;
     disable_raw_mode()?;
 
-    // Force exit to kill any lingering blocking background tasks
-    // (e.g. slow clawhub CLI calls) that would otherwise prevent shutdown.
     let code = if setup_result.is_ok() { 0 } else { 1 };
     std::process::exit(code);
 }
@@ -164,7 +146,6 @@ async fn run_loop<B: ratatui::backend::Backend>(
     ctx: &tui::event::EventContext,
     rx: &mut mpsc::UnboundedReceiver<tui::event::AppEvent>,
 ) -> Result<()> {
-    // Initial draw
     terminal.draw(|frame| tui::render::draw(frame, state))?;
 
     while let Some(event) = rx.recv().await {
