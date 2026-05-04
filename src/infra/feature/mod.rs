@@ -29,19 +29,28 @@ pub fn extract_frontmatter(content: &str) -> Option<Frontmatter> {
             continue;
         }
         if trimmed.starts_with("version:") {
-            let v = trimmed["version:".len()..].trim().trim_matches('"').trim_matches('\'');
+            let v = trimmed["version:".len()..]
+                .trim()
+                .trim_matches('"')
+                .trim_matches('\'');
             if !v.is_empty() {
                 fm.version = Some(v.to_string());
             }
             current_array = None;
         } else if trimmed.starts_with("name:") {
-            let v = trimmed["name:".len()..].trim().trim_matches('"').trim_matches('\'');
+            let v = trimmed["name:".len()..]
+                .trim()
+                .trim_matches('"')
+                .trim_matches('\'');
             if !v.is_empty() {
                 fm.name = Some(v.to_string());
             }
             current_array = None;
         } else if trimmed.starts_with("description:") {
-            let v = trimmed["description:".len()..].trim().trim_matches('"').trim_matches('\'');
+            let v = trimmed["description:".len()..]
+                .trim()
+                .trim_matches('"')
+                .trim_matches('\'');
             if !v.is_empty() {
                 fm.description = Some(v.to_string());
             }

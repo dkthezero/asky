@@ -135,14 +135,21 @@ pub fn cmd_sync(
     workspace: &std::path::Path,
 ) -> Result<i32> {
     let mode = OutputMode::from_cli(cli);
-    let scope = if global { Scope::Global } else { Scope::Workspace };
+    let scope = if global {
+        Scope::Global
+    } else {
+        Scope::Workspace
+    };
 
     let (registry, _scan, store) = bootstrap::build(workspace.to_path_buf())?;
     let config = store.load(scope)?;
 
     let providers = active_providers_from_config(&registry, &config);
     if providers.is_empty() {
-        eprintln_if_not_quiet(&mode, "No active providers configured. Use the TUI to enable providers.");
+        eprintln_if_not_quiet(
+            &mode,
+            "No active providers configured. Use the TUI to enable providers.",
+        );
         return Ok(EXIT_GENERAL_FAILURE);
     }
 
@@ -209,7 +216,8 @@ pub fn cmd_sync(
 
     let exit_code = if result.errors.is_empty() {
         EXIT_SUCCESS
-    } else if result.installed.is_empty() && result.updated.is_empty() && result.skipped.is_empty() {
+    } else if result.installed.is_empty() && result.updated.is_empty() && result.skipped.is_empty()
+    {
         EXIT_GENERAL_FAILURE
     } else {
         EXIT_PARTIAL_SUCCESS
@@ -309,14 +317,20 @@ pub fn cmd_install(
     };
 
     if providers.is_empty() {
-        eprintln_if_not_quiet(&mode, "No active providers configured. Use the TUI or --provider flag.");
+        eprintln_if_not_quiet(
+            &mode,
+            "No active providers configured. Use the TUI or --provider flag.",
+        );
         return Ok(EXIT_GENERAL_FAILURE);
     }
 
     let pkg = match find_package_by_full_identity(&registry, identity_str)? {
         Some(p) => p,
         None => {
-            eprintln_if_not_quiet(&mode, &format!("Asset '{}' not found in any vault", identity_str));
+            eprintln_if_not_quiet(
+                &mode,
+                &format!("Asset '{}' not found in any vault", identity_str),
+            );
             let result = InstallResult {
                 installed: false,
                 identity: Some(identity_str.to_string()),
@@ -613,12 +627,7 @@ fn pack_claude_desktop(
         Ok(())
     }
 
-    add_dir_to_zip(
-        &mut zip,
-        &pkg.path,
-        &pkg.identity.name,
-        options,
-    )?;
+    add_dir_to_zip(&mut zip, &pkg.path, &pkg.identity.name, options)?;
     zip.finish()?;
 
     if stdout_flag {
@@ -627,11 +636,7 @@ fn pack_claude_desktop(
     } else {
         println_if_not_quiet(
             mode,
-            &format!(
-                "Packed '{}' to {}",
-                pkg.identity.name,
-                out_path.display()
-            ),
+            &format!("Packed '{}' to {}", pkg.identity.name, out_path.display()),
         );
     }
     Ok(())
@@ -650,7 +655,10 @@ fn pack_tarball(
 
     let out_dir = workspace.join(".agk").join("pack");
     std::fs::create_dir_all(&out_dir)?;
-    let out_path = out_dir.join(format!("{}-{}.tar.gz", pkg.identity.name, pkg.identity.sha10));
+    let out_path = out_dir.join(format!(
+        "{}-{}.tar.gz",
+        pkg.identity.name, pkg.identity.sha10
+    ));
 
     let file = std::fs::File::create(&out_path)?;
     let enc = GzEncoder::new(file, Compression::default());
@@ -665,11 +673,7 @@ fn pack_tarball(
     } else {
         println_if_not_quiet(
             mode,
-            &format!(
-                "Packed '{}' to {}",
-                pkg.identity.name,
-                out_path.display()
-            ),
+            &format!("Packed '{}' to {}", pkg.identity.name, out_path.display()),
         );
     }
     Ok(())
@@ -712,30 +716,29 @@ pub fn run(cli: Cli, workspace: &std::path::Path) -> Result<i32> {
             Ok(EXIT_SUCCESS)
         }
 
-        Some(Commands::Sync { global, dry_run }) => {
-            cmd_sync(&cli, global, dry_run, workspace)
-        }
+        Some(Commands::Sync { global, dry_run }) => cmd_sync(&cli, global, dry_run, workspace),
 
         Some(Commands::Install {
             ref identity,
             scope,
             dry_run,
             ref provider,
-        }) => {
-            cmd_install(&cli, identity, scope, dry_run, provider.as_deref(), workspace)
-        }
+        }) => cmd_install(
+            &cli,
+            identity,
+            scope,
+            dry_run,
+            provider.as_deref(),
+            workspace,
+        ),
 
-        Some(Commands::Validate { scope }) => {
-            cmd_validate(&cli, scope, workspace)
-        }
+        Some(Commands::Validate { scope }) => cmd_validate(&cli, scope, workspace),
 
         Some(Commands::Pack {
             ref identity,
             target,
             stdout,
-        }) => {
-            cmd_pack(&cli, identity, target, stdout, workspace)
-        }
+        }) => cmd_pack(&cli, identity, target, stdout, workspace),
 
         None => {
             // No subcommand — fall through to TUI in main.rs

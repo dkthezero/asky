@@ -33,10 +33,13 @@ pub fn build_with_store(
     let mut registry = Registry::new();
 
     // Feature sets — order defines tab order
+    // Tab 0: Vaults, Tab 1: Skills, Tab 2: Instructions, Tab 3: Providers
+    registry.register_feature_set(Box::new(StubFeatureSet::new("vault", "Vaults", "")));
     registry.register_feature_set(Box::new(SkillFeatureSet));
     registry.register_feature_set(Box::new(InstructionFeatureSet));
     registry.register_feature_set(Box::new(StubFeatureSet::new("provider", "Providers", "")));
-    registry.register_feature_set(Box::new(StubFeatureSet::new("vault", "Vaults", "")));
+    // Tab 4: MCP Servers (placeholder)
+    registry.register_feature_set(Box::new(StubFeatureSet::new("mcp", "MCP Servers", "")));
 
     // Extract dynamic vaults from configurations
     let mut global_config =
@@ -316,10 +319,10 @@ mod tests {
     }
 
     #[test]
-    fn bootstrap_produces_four_tabs() {
+    fn bootstrap_produces_five_tabs() {
         let dir = tempfile::tempdir().unwrap();
         let (registry, _, _store) = build(dir.path().to_path_buf()).unwrap();
-        assert_eq!(registry.feature_sets.len(), 4);
+        assert_eq!(registry.feature_sets.len(), 5);
     }
 
     #[test]
@@ -347,7 +350,8 @@ path = "{}"
         let store =
             TomlConfigStore::new(global_dir.join("config.toml"), agk_dir.join("config.toml"));
         let (_, scan, _store) = build_with_store(workspace_root, store).unwrap();
-        let ws_skills = scan.packages_by_tab[0]
+        // Skills is tab index 1 (after Vaults at index 0)
+        let ws_skills = scan.packages_by_tab[1]
             .iter()
             .filter(|p| p.vault_id == "workspace")
             .count();
@@ -358,7 +362,8 @@ path = "{}"
     fn bootstrap_skill_tab_is_live() {
         let dir = tempfile::tempdir().unwrap();
         let (registry, _, _store) = build(dir.path().to_path_buf()).unwrap();
-        assert!(!registry.feature_sets[0].is_stub());
+        // Skills is tab index 1 (after Vaults at index 0)
+        assert!(!registry.feature_sets[1].is_stub());
     }
 
     #[test]
@@ -387,8 +392,8 @@ path = "{}"
         let store =
             TomlConfigStore::new(global_dir.join("config.toml"), agk_dir.join("config.toml"));
         let (_, scan, _store) = build_with_store(workspace_root, store).unwrap();
-        // Instructions is tab index 1
-        let ws_insts: Vec<_> = scan.packages_by_tab[1]
+        // Instructions is tab index 2 (after Vaults at 0, Skills at 1)
+        let ws_insts: Vec<_> = scan.packages_by_tab[2]
             .iter()
             .filter(|p| p.vault_id == "workspace")
             .collect();
@@ -400,7 +405,8 @@ path = "{}"
     fn bootstrap_instructions_tab_is_live() {
         let dir = tempfile::tempdir().unwrap();
         let (registry, _, _store) = build(dir.path().to_path_buf()).unwrap();
-        assert!(!registry.feature_sets[1].is_stub());
+        // Instructions is tab index 2
+        assert!(!registry.feature_sets[2].is_stub());
     }
 
     #[test]

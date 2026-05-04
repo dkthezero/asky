@@ -46,9 +46,7 @@ impl OpenCodeProvider {
         }
     }
 
-    fn load_config(&self,
-        scope: &Scope,
-    ) -> Result<OpenCodeConfig> {
+    fn load_config(&self, scope: &Scope) -> Result<OpenCodeConfig> {
         let path = self.config_path(scope);
         if !path.exists() {
             return Ok(OpenCodeConfig::default());
@@ -61,17 +59,13 @@ impl OpenCodeProvider {
         Ok(config)
     }
 
-    fn save_config(&self,
-        scope: &Scope,
-        config: &OpenCodeConfig,
-    ) -> Result<()> {
+    fn save_config(&self, scope: &Scope, config: &OpenCodeConfig) -> Result<()> {
         let path = self.config_path(scope);
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
         let content = serde_json::to_string_pretty(config)?;
-        std::fs::write(&path, content)
-            .with_context(|| format!("writing {}", path.display()))?;
+        std::fs::write(&path, content).with_context(|| format!("writing {}", path.display()))?;
         Ok(())
     }
 }
@@ -210,7 +204,12 @@ mod tests {
     use super::*;
     use crate::domain::asset::AssetKind;
 
-    fn make_pkg(dir: &std::path::Path, name: &str, kind: AssetKind, marker: &str) -> ScannedPackage {
+    fn make_pkg(
+        dir: &std::path::Path,
+        name: &str,
+        kind: AssetKind,
+        marker: &str,
+    ) -> ScannedPackage {
         let pkg_dir = dir.join(name);
         std::fs::create_dir_all(&pkg_dir).unwrap();
         std::fs::write(pkg_dir.join(marker), format!("# {}", name)).unwrap();
@@ -234,7 +233,10 @@ mod tests {
         let pkg = make_pkg(&src_dir, "my-skill", AssetKind::Skill, "SKILL.md");
         let provider = OpenCodeProvider::new(dir.path().to_path_buf());
         provider.install(&pkg, Scope::Workspace).unwrap();
-        assert!(dir.path().join(".opencode/skills/my-skill/SKILL.md").exists());
+        assert!(dir
+            .path()
+            .join(".opencode/skills/my-skill/SKILL.md")
+            .exists());
     }
 
     #[test]

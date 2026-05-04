@@ -54,7 +54,7 @@ impl VaultPort for LocalVaultAdapter {
                 .into_owned();
             let version = feature.extract_version(&path);
             let identity = AssetIdentity::new(name, version, sha10);
-            
+
             // Parse frontmatter for dependencies (meta-skill support)
             let mut requires = Vec::new();
             let mut requires_optional = Vec::new();
@@ -66,7 +66,7 @@ impl VaultPort for LocalVaultAdapter {
                     }
                 }
             }
-            
+
             packages.push(ScannedPackage {
                 identity,
                 path,

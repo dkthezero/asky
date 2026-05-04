@@ -242,7 +242,12 @@ mod tests {
         fn install(&self, _pkg: &ScannedPackage, _scope: Scope) -> Result<()> {
             Ok(())
         }
-        fn remove(&self, _identity: &AssetIdentity, _kind: &AssetKind, _scope: Scope) -> Result<()> {
+        fn remove(
+            &self,
+            _identity: &AssetIdentity,
+            _kind: &AssetKind,
+            _scope: Scope,
+        ) -> Result<()> {
             Ok(())
         }
     }

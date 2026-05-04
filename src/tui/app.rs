@@ -348,21 +348,22 @@ mod tests {
     fn tab_kind_vaults_and_providers() {
         let mut state = AppState::new(
             vec![
+                "Vaults".into(),
                 "Skills".into(),
                 "Instructions".into(),
                 "Providers".into(),
-                "Vaults".into(),
             ],
             vec![true, true, true, true],
             HashMap::new(),
         );
         state.tab_kinds = vec![
+            TabKind::Vault,
             TabKind::Asset,
             TabKind::Asset,
             TabKind::Provider,
-            TabKind::Vault,
         ];
-        assert_eq!(state.tab_kinds[2], TabKind::Provider);
-        assert_eq!(state.tab_kinds[3], TabKind::Vault);
+        assert_eq!(state.tab_kinds[0], TabKind::Vault);
+        assert_eq!(state.tab_kinds[1], TabKind::Asset);
+        assert_eq!(state.tab_kinds[3], TabKind::Provider);
     }
 }

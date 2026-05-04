@@ -398,7 +398,7 @@ fn handle_space(state: &mut AppState, ctx: &EventContext) -> Result<()> {
                     .tab_names
                     .iter()
                     .position(|n| n == "Providers")
-                    .unwrap_or(2);
+                    .unwrap_or(3);
                 apply_space_no_provider(state, providers_idx);
                 Ok(())
             } else {
@@ -769,7 +769,7 @@ fn handle_enter(state: &mut AppState, ctx: &EventContext) -> Result<()> {
             .tab_names
             .iter()
             .position(|n| n == "Providers")
-            .unwrap_or(2);
+            .unwrap_or(3);
         apply_space_no_provider(state, providers_idx);
     } else {
         let pkg_clone = {
@@ -834,7 +834,7 @@ fn handle_f_keys(state: &mut AppState, ctx: &EventContext, code: &KeyCode) -> Re
                 .tab_names
                 .iter()
                 .position(|n| n == "Vaults")
-                .unwrap_or(3);
+                .unwrap_or(0);
             if state.active_tab == vaults_idx {
                 apply_enter_attach_vault(state);
             }
@@ -947,7 +947,7 @@ pub fn apply_enter_attach_vault(state: &mut AppState) {
     state.list_mode = ListMode::AttachVault;
     state.prompt_buffer = String::new();
     state.status_line =
-        "Attach vault \u{2014} enter local path or Github URL (Enter to confirm, Esc to cancel):"
+        "Attach vault — enter local path or Github URL (Enter to confirm, Esc to cancel):"
             .to_string();
 }
 
@@ -1131,16 +1131,16 @@ mod tests {
 
     #[test]
     fn space_redirects_to_providers_tab_when_no_provider() {
-        let mut state = empty_state(4);
-        apply_space_no_provider(&mut state, 2);
-        assert_eq!(state.active_tab, 2);
+        let mut state = empty_state(5);
+        apply_space_no_provider(&mut state, 3); // Providers is now tab 3
+        assert_eq!(state.active_tab, 3);
         assert!(!state.status_line.is_empty());
     }
 
     #[test]
     fn a_key_on_vaults_tab_enters_attach_mode() {
-        let mut state = empty_state(4);
-        state.active_tab = 3; // Vaults tab
+        let mut state = empty_state(5);
+        state.active_tab = 0; // Vaults tab is now index 0
         apply_enter_attach_vault(&mut state);
         assert_eq!(state.list_mode, ListMode::AttachVault);
     }
