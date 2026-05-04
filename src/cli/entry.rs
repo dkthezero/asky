@@ -81,6 +81,87 @@ pub enum Commands {
         #[arg(long)]
         stdout: bool,
     },
+
+    /// Manage MCP servers
+    Mcp {
+        #[command(subcommand)]
+        command: McpCommands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum McpCommands {
+    /// Add/register a new MCP server
+    Add {
+        /// Server name (unique identifier)
+        #[arg(short, long)]
+        name: String,
+
+        /// Command to run the MCP server
+        #[arg(short, long)]
+        command: String,
+
+        /// Arguments for the command
+        #[arg(short, long)]
+        args: Option<String>,
+
+        /// Environment variables (KEY=VALUE, comma-separated)
+        #[arg(short, long)]
+        env: Option<String>,
+
+        /// Transport type (stdio or sse)
+        #[arg(short, long, default_value = "stdio")]
+        transport: String,
+
+        /// Description of the server
+        #[arg(short, long)]
+        description: Option<String>,
+
+        /// Skip the connection test after registering
+        #[arg(long)]
+        no_test: bool,
+    },
+
+    /// Enable an MCP server for a provider
+    Enable {
+        /// Server name
+        name: String,
+
+        /// Target provider
+        #[arg(short, long)]
+        provider: String,
+
+        /// Target scope
+        #[arg(short, long, value_enum)]
+        scope: Option<ScopeArg>,
+    },
+
+    /// Disable an MCP server for a provider
+    Disable {
+        /// Server name
+        name: String,
+
+        /// Target provider
+        #[arg(short, long)]
+        provider: String,
+
+        /// Target scope
+        #[arg(short, long, value_enum)]
+        scope: Option<ScopeArg>,
+    },
+
+    /// List all registered MCP servers
+    List {
+        /// Filter by enabled provider
+        #[arg(short, long)]
+        provider: Option<String>,
+    },
+
+    /// Test an MCP server connection
+    Test {
+        /// Server name
+        name: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]

@@ -740,6 +740,58 @@ pub fn run(cli: Cli, workspace: &std::path::Path) -> Result<i32> {
             stdout,
         }) => cmd_pack(&cli, identity, target, stdout, workspace),
 
+        Some(Commands::Mcp { ref command }) => match command {
+            crate::cli::entry::McpCommands::Add {
+                ref name,
+                ref command,
+                ref args,
+                ref env,
+                ref transport,
+                ref description,
+                no_test,
+            } => {
+                println!("MCP Add: name={}, command={}, transport={}", name, command, transport);
+                if !no_test {
+                    println!("  (Connection test would run here)");
+                }
+                Ok(EXIT_SUCCESS)
+            }
+            crate::cli::entry::McpCommands::Enable {
+                ref name,
+                ref provider,
+                scope,
+            } => {
+                println!(
+                    "MCP Enable: name={}, provider={}, scope={:?}",
+                    name,
+                    provider,
+                    scope
+                );
+                Ok(EXIT_SUCCESS)
+            }
+            crate::cli::entry::McpCommands::Disable {
+                ref name,
+                ref provider,
+                scope,
+            } => {
+                println!(
+                    "MCP Disable: name={}, provider={}, scope={:?}",
+                    name,
+                    provider,
+                    scope
+                );
+                Ok(EXIT_SUCCESS)
+            }
+            crate::cli::entry::McpCommands::List { ref provider } => {
+                println!("MCP List: provider_filter={:?}", provider);
+                Ok(EXIT_SUCCESS)
+            }
+            crate::cli::entry::McpCommands::Test { ref name } => {
+                println!("MCP Test: name={}", name);
+                Ok(EXIT_SUCCESS)
+            }
+        },
+
         None => {
             // No subcommand — fall through to TUI in main.rs
             Ok(EXIT_SUCCESS)
