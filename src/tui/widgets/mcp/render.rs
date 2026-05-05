@@ -174,6 +174,9 @@ fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max {
         return s.to_string();
     }
+    if max == 0 {
+        return String::new();
+    }
     let mut end = max;
     while end > 0 && !s.is_char_boundary(end) {
         end -= 1;

@@ -87,6 +87,9 @@ impl ProviderPort for OpenCodeProvider {
         kind: &AssetKind,
         scope: Scope,
     ) -> Option<PathBuf> {
+        if *kind == AssetKind::McpServer {
+            return None;
+        }
         Some(self.asset_dir(&scope, kind, &identity.name))
     }
 
@@ -145,6 +148,9 @@ impl McpProvider for OpenCodeProvider {
             serde_json::json!({})
         };
 
+        if !config.is_object() {
+            config = serde_json::json!({});
+        }
         if config.get("mcp").is_none() {
             config["mcp"] = serde_json::json!({});
         }

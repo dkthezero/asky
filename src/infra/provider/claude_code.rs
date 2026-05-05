@@ -87,6 +87,9 @@ impl ProviderPort for ClaudeCodeProvider {
         kind: &AssetKind,
         scope: Scope,
     ) -> Option<PathBuf> {
+        if *kind == AssetKind::McpServer {
+            return None;
+        }
         Some(self.asset_dir(&scope, kind, &identity.name))
     }
 }
@@ -106,6 +109,9 @@ impl McpProvider for ClaudeCodeProvider {
 
     fn write_mcp_server(&self, server: &McpServer, scope: Scope) -> Result<()> {
         let mut config = self.load_mcp_config(&scope)?;
+        if !config.is_object() {
+            config = serde_json::json!({});
+        }
         if config.get("mcpServers").is_none() {
             config["mcpServers"] = serde_json::json!({});
         }
