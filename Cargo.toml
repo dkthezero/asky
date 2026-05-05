@@ -15,7 +15,7 @@ name = "agk"
 path = "src/main.rs"
 
 [dependencies]
-ratatui = "0.29"
+ratatui = "0.30"
 crossterm = { version = "0.28", features = ["event-stream"] }
 clap = { version = "4", features = ["derive"] }
 sha2 = "0.10"

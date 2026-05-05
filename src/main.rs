@@ -152,7 +152,10 @@ async fn run_loop<B: ratatui::backend::Backend>(
     state: &mut tui::app::AppState,
     ctx: &tui::event::EventContext,
     rx: &mut mpsc::UnboundedReceiver<tui::event::AppEvent>,
-) -> Result<()> {
+) -> Result<()>
+where
+    B::Error: Send + Sync + 'static,
+{
     terminal.draw(|frame| tui::render::draw(frame, state))?;
 
     while let Some(event) = rx.recv().await {
