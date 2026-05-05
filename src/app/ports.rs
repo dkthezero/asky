@@ -47,6 +47,17 @@ pub trait ProviderPort: Send + Sync {
     fn name(&self) -> &str;
     fn install(&self, pkg: &ScannedPackage, scope: Scope) -> Result<()>;
     fn remove(&self, identity: &AssetIdentity, kind: &AssetKind, scope: Scope) -> Result<()>;
+
+    /// Return the expected on-disk install path for the given asset, if known.
+    /// Defaults to `None` for providers where the path convention is not exposed.
+    fn install_path_for(
+        &self,
+        _identity: &AssetIdentity,
+        _kind: &AssetKind,
+        _scope: Scope,
+    ) -> Option<PathBuf> {
+        None
+    }
 }
 
 /// Extension trait for providers that support MCP configuration.

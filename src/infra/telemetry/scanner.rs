@@ -77,14 +77,15 @@ pub async fn run(scanner: Scanner) {
     let mut timer = interval(Duration::from_secs(60));
     loop {
         timer.tick().await;
-        if !scanner.enabled {
+        let mut config = AnalyticsConfig::load(&scanner.config_path).unwrap_or_default();
+        if !config.settings.enabled {
             continue;
         }
-        let mut config = AnalyticsConfig::load(&scanner.config_path).unwrap_or_default();
+        let scan_started_at = chrono::Utc::now().to_rfc3339();
         for parser in &scanner.parsers {
             crate::infra::telemetry::parser::scan_directory(parser.as_ref(), &mut config);
         }
-        config.settings.last_scan = Some(chrono::Utc::now().to_rfc3339());
+        config.settings.last_scan = Some(scan_started_at);
         let _ = config.save(&scanner.config_path);
     }
 }

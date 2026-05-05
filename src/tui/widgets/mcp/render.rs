@@ -172,8 +172,69 @@ pub fn render_detail(frame: &mut Frame, area: Rect, state: &McpState, active_sel
 
 fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max {
-        s.to_string()
-    } else {
-        format!("{}...", &s[..max])
+        return s.to_string();
+    }
+    if max == 0 {
+        return String::new();
+    }
+    let mut end = max;
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    if end == 0 {
+        // max is smaller than the first char's byte length.
+        // There is no room for any content before the ellipsis,
+        // so just show "..." if we have enough width for it.
+        if max >= 3 {
+            return String::from("...");
+        }
+        return String::new();
+    }
+    format!("{}...", &s[..end])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn truncate_short_string_unchanged() {
+        assert_eq!(truncate("hello", 10), "hello");
+        assert_eq!(truncate("hello", 5), "hello");
+    }
+
+    #[test]
+    fn truncate_ascii_adds_ellipsis() {
+        // max=5: keep first 5 bytes then append "..."
+        assert_eq!(truncate("hello world", 5), "hello...");
+    }
+
+    #[test]
+    fn truncate_max_zero_returns_empty() {
+        assert_eq!(truncate("hello", 0), "");
+    }
+
+    #[test]
+    fn truncate_multibyte_char_boundary() {
+        // "héllo" — 'é' is 2 bytes; max=4 cuts at byte 4 (after 'é')
+        let s = "héllo world";
+        let result = truncate(s, 4);
+        assert!(result.ends_with("..."));
+    }
+
+    #[test]
+    fn truncate_max_inside_first_multibyte_char_with_room_for_ellipsis() {
+        // 4-byte emoji; max=3 triggers the end==0 branch with max>=3
+        let s = "😀world";
+        let result = truncate(s, 3);
+        assert_eq!(result, "...");
+    }
+
+    #[test]
+    fn truncate_max_inside_first_multibyte_char_no_room_for_ellipsis() {
+        // 4-byte emoji; max=2 — can't fit any valid output within 2 bytes
+        let s = "😀world";
+        let result = truncate(s, 2);
+        assert_eq!(result, "");
     }
 }

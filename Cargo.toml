@@ -1,12 +1,12 @@
 [package]
 name = "agk"
-version = "0.1.2"
+version = "0.2.1"
 edition = "2021"
 authors = ["dkthezero"]
-description = "A terminal-based vault management tool"
+description = "The agent kit for teams to share the way they work with AI agents together"
 repository = "https://github.com/dkthezero/agk"
 license = "MIT"
-keywords = ["cli", "vault", "tui"]
+keywords = ["cli", "vault", "tui", "mcp", "skills"]
 categories = ["command-line-utilities"]
 readme = "README.md"
 
@@ -15,7 +15,7 @@ name = "agk"
 path = "src/main.rs"
 
 [dependencies]
-ratatui = "0.29"
+ratatui = "0.30"
 crossterm = { version = "0.28", features = ["event-stream"] }
 clap = { version = "4", features = ["derive"] }
 sha2 = "0.10"

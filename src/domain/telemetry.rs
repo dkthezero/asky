@@ -10,6 +10,9 @@ pub struct AnalyticsConfig {
     pub settings: AnalyticsSettings,
     #[serde(default)]
     pub skills: HashMap<String, SkillAnalytics>,
+    /// Per-file byte offsets for deduplication: path → last processed file size in bytes.
+    #[serde(default)]
+    pub file_offsets: HashMap<String, u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

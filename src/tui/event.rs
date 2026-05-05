@@ -396,9 +396,8 @@ fn handle_register_mcp_input(
                 state.pending_mcp_command =
                     std::mem::take(&mut state.prompt_buffer).trim().to_string();
                 if state.pending_mcp_command.is_empty() {
-                    state.list_mode = ListMode::Normal;
                     state.status_line =
-                        format!("Saved MCP '{}' without command", state.pending_mcp_name);
+                        "Command cannot be empty. Enter a command (e.g. npx, python):".to_string();
                 } else {
                     state.list_mode = ListMode::RegisterMcpStepArgs;
                     state.status_line = "Arguments (space-separated, optional):".to_string();

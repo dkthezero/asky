@@ -97,14 +97,14 @@ pub async fn test_server(name: &str) -> Result<()> {
                 .ok_or_else(|| anyhow::anyhow!("Failed to open stdout"))?;
 
             let init_request = serde_json::json!({
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "initialize",
-                "params": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {},
-                    "clientInfo": { "name": "agk", "version": "0.1.2" }
-                }
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": { "name": "agk", "version": env!("CARGO_PKG_VERSION") }
+            }
             });
 
             let request_str = format!("{}\n", init_request.to_string());
