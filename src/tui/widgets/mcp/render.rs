@@ -183,11 +183,10 @@ fn truncate(s: &str, max: usize) -> String {
     }
     if end == 0 {
         // max is smaller than the first char's byte length.
-        // With max>=3 we can at least show "..." to signal truncation.
-        // With max<3 there is no room for any indicator, so return empty.
+        // There is no room for any content before the ellipsis,
+        // so just show "..." if we have enough width for it.
         if max >= 3 {
-            let head: String = s.chars().take(max - 3).collect();
-            return format!("{}...", head);
+            return String::from("...");
         }
         return String::new();
     }
