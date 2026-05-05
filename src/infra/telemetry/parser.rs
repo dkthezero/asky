@@ -305,44 +305,7 @@ mod tests {
         let log_file = log_dir.join("claude.log");
         std::fs::write(&log_file, "executed tool `alpha'\n").unwrap();
 
-        struct TestParser;
-        impl LogParser for TestParser {
-            fn provider_id(&self) -> &str {
-                "test"
-            }
-            fn log_directories(&self) -> Vec<PathBuf> {
-                vec![std::path::PathBuf::from("logs")]
-            }
-            fn parse_line(&self, line: &str) -> Option<SkillInvocation> {
-                extract_after_prefix(line, "executed tool `").map(|name| SkillInvocation {
-                    skill_name: name.to_string(),
-                    provider_id: "test".to_string(),
-                    timestamp: Utc::now(),
-                })
-            }
-        }
-
         let mut config = AnalyticsConfig::default();
-        // Patch the log directory to our temp dir
-        let parser = TestParser;
-        let real_log_dir = log_dir.clone();
-        struct RealDirParser;
-        impl LogParser for RealDirParser {
-            fn provider_id(&self) -> &str {
-                "test"
-            }
-            fn log_directories(&self) -> Vec<PathBuf> {
-                vec![std::path::PathBuf::from("logs")] // placeholder
-            }
-            fn parse_line(&self, line: &str) -> Option<SkillInvocation> {
-                extract_after_prefix(line, "executed tool `").map(|name| SkillInvocation {
-                    skill_name: name.to_string(),
-                    provider_id: "test".to_string(),
-                    timestamp: Utc::now(),
-                })
-            }
-        }
-        // Use scan_directory directly with our temp path via a custom parser
         let p = TestParserWithDir {
             dir: log_dir.clone(),
         };
