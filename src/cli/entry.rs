@@ -180,6 +180,23 @@ pub enum TelemetryCommands {
 
     /// Show telemetry status
     Status,
+
+    /// Export telemetry data
+    Export {
+        /// Output format
+        #[arg(long, value_enum, default_value = "json")]
+        format: ExportFormat,
+
+        /// Output file (default: stdout)
+        #[arg(long)]
+        output: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum ExportFormat {
+    Json,
+    Csv,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]

@@ -57,7 +57,7 @@ pub fn render(frame: &mut Frame, area: Rect, config: &AnalyticsConfig, selected:
             })
             .unwrap_or(true);
 
-        let providers = analytics.providers.join(", ");
+        let providers = analytics.providers().join(", ");
         let last_used = analytics
             .last_used
             .clone()
@@ -131,7 +131,7 @@ pub fn render_detail(frame: &mut Frame, area: Rect, config: &AnalyticsConfig, se
         return;
     }
 
-    let mut items: Vec<(String, u64, String, String, bool)> = config
+    let mut items: Vec<(String, u64, String, String, bool, String)> = config
         .skills
         .iter()
         .map(|(name, analytics)| {
@@ -152,15 +152,17 @@ pub fn render_detail(frame: &mut Frame, area: Rect, config: &AnalyticsConfig, se
                     .last_used
                     .clone()
                     .unwrap_or_else(|| "never".to_string()),
-                analytics.providers.join(", "),
+                analytics.providers().join(", "),
                 is_stale,
+                analytics.provider_breakdown(),
             )
         })
         .collect();
 
     items.sort_by(|a, b| b.1.cmp(&a.1));
 
-    let Some((name, invocations, last_used, providers, is_stale)) = items.get(selected) else {
+    let Some((name, invocations, last_used, providers, is_stale, breakdown)) = items.get(selected)
+    else {
         frame.render_widget(Paragraph::new("No data selected.").block(block), area);
         return;
     };
@@ -184,6 +186,13 @@ pub fn render_detail(frame: &mut Frame, area: Rect, config: &AnalyticsConfig, se
     lines.push(Line::from(vec![
         Span::styled("Providers: ", Style::default().add_modifier(Modifier::BOLD)),
         Span::raw(providers.as_str()),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled(
+            "Per-provider: ",
+            Style::default().add_modifier(Modifier::BOLD),
+        ),
+        Span::raw(breakdown.as_str()),
     ]));
 
     if *is_stale {
