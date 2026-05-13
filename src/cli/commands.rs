@@ -53,6 +53,22 @@ fn print_json<T: serde::Serialize>(mode: &OutputMode, value: &T) -> Result<()> {
     Ok(())
 }
 
+fn telemetry_to_csv(config: &crate::domain::telemetry::AnalyticsConfig) -> String {
+    let mut lines = vec!["skill,invocations,last_used,providers".to_string()];
+    for (name, analytics) in &config.skills {
+        let last = analytics.last_used.as_deref().unwrap_or("never");
+        let providers = analytics.providers().join("; ");
+        lines.push(format!(
+            "\"{}\",{},\"{}\",\"{}\"",
+            name.replace('"', "\"\""),
+            analytics.total_invocations,
+            last,
+            providers.replace('"', "\"\""),
+        ));
+    }
+    lines.join("\n")
+}
+
 // ---------------------------------------------------------------------------
 // Common helpers
 // ---------------------------------------------------------------------------
@@ -925,6 +941,24 @@ pub fn run(cli: Cli, workspace: &std::path::Path) -> Result<i32> {
                             status.last_scan.as_deref().unwrap_or("never")
                         ),
                     );
+                }
+                Ok(EXIT_SUCCESS)
+            }
+            crate::cli::entry::TelemetryCommands::Export { format, output } => {
+                let path = crate::domain::paths::analytics_path();
+                let config = crate::domain::telemetry::AnalyticsConfig::load(&path)?;
+                let mode = OutputMode::from_cli(&cli);
+
+                let content = match format {
+                    crate::cli::entry::ExportFormat::Json => serde_json::to_string_pretty(&config)?,
+                    crate::cli::entry::ExportFormat::Csv => telemetry_to_csv(&config),
+                };
+
+                if let Some(file_path) = output {
+                    std::fs::write(&file_path, &content)?;
+                    println_if_not_quiet(&mode, &format!("Telemetry exported to {}", file_path));
+                } else {
+                    println!("{}", content);
                 }
                 Ok(EXIT_SUCCESS)
             }

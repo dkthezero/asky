@@ -40,7 +40,47 @@ pub struct SkillAnalytics {
     pub total_invocations: u64,
     pub last_used: Option<String>,
     #[serde(default)]
-    pub providers: Vec<String>,
+    pub provider_counts: HashMap<String, u64>,
+    // Legacy field: kept for backward-compatible deserialization.
+    #[serde(default, skip_serializing)]
+    providers: Vec<String>,
+}
+
+impl SkillAnalytics {
+    /// Return the list of provider IDs that have recorded invocations.
+    pub fn providers(&self) -> Vec<String> {
+        let mut keys: Vec<String> = self.provider_counts.keys().cloned().collect();
+        // Merge any legacy providers that might not have counts yet
+        for p in &self.providers {
+            if !keys.contains(p) {
+                keys.push(p.clone());
+            }
+        }
+        keys
+    }
+
+    /// Increment count for a specific provider.
+    pub fn increment_provider(&mut self, provider_id: &str) {
+        *self
+            .provider_counts
+            .entry(provider_id.to_string())
+            .or_insert(0) += 1;
+    }
+
+    /// Get per-provider breakdown formatted for display.
+    pub fn provider_breakdown(&self) -> String {
+        let mut parts: Vec<String> = self
+            .provider_counts
+            .iter()
+            .map(|(k, v)| format!("{}: {}", k, v))
+            .collect();
+        for p in &self.providers {
+            if !self.provider_counts.contains_key(p) {
+                parts.push(format!("{}: ?", p));
+            }
+        }
+        parts.join(", ")
+    }
 }
 
 impl AnalyticsConfig {
@@ -66,9 +106,7 @@ impl AnalyticsConfig {
         let entry = self.skills.entry(skill_name.to_string()).or_default();
         entry.total_invocations += 1;
         entry.last_used = Some(chrono::Utc::now().to_rfc3339());
-        if !entry.providers.contains(&provider_id.to_string()) {
-            entry.providers.push(provider_id.to_string());
-        }
+        entry.increment_provider(provider_id);
     }
 }
 
@@ -96,6 +134,7 @@ mod tests {
         assert!(loaded.settings.enabled);
         let skill = loaded.skills.get("web-browser").unwrap();
         assert_eq!(skill.total_invocations, 1);
-        assert!(skill.providers.contains(&"claude-code".to_string()));
+        assert!(skill.providers().contains(&"claude-code".to_string()));
+        assert_eq!(skill.provider_counts.get("claude-code"), Some(&1));
     }
 }

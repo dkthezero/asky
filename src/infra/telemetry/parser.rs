@@ -57,13 +57,14 @@ pub struct CopilotLogParser;
 
 impl LogParser for CopilotLogParser {
     fn provider_id(&self) -> &str {
-        "copilot"
+        "github-copilot"
     }
 
     fn log_directories(&self) -> Vec<PathBuf> {
         let mut dirs = Vec::new();
         if let Some(home) = dirs_next::home_dir() {
             dirs.push(home.join("Library/Logs/GitHub Copilot")); // macOS
+            dirs.push(home.join(".local/share/GitHub Copilot/logs")); // Linux
         }
         dirs
     }
@@ -71,6 +72,105 @@ impl LogParser for CopilotLogParser {
     fn parse_line(&self, line: &str) -> Option<SkillInvocation> {
         let name = extract_quoted_after(line, "invoked tool `")
             .or_else(|| extract_after_prefix(line, "tool call: "))?;
+        Some(SkillInvocation {
+            skill_name: name.to_string(),
+            provider_id: self.provider_id().to_string(),
+            timestamp: Utc::now(),
+        })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// GitHub Copilot CLI (separate parser from VS Code extension Copilot)
+// ---------------------------------------------------------------------------
+
+pub struct CopilotCliLogParser;
+
+impl LogParser for CopilotCliLogParser {
+    fn provider_id(&self) -> &str {
+        "github-copilot-cli"
+    }
+
+    fn log_directories(&self) -> Vec<PathBuf> {
+        let mut dirs = Vec::new();
+        if let Some(home) = dirs_next::home_dir() {
+            dirs.push(home.join("Library/Logs/Copilot CLI")); // macOS
+            dirs.push(home.join(".local/share/Copilot CLI/logs")); // Linux
+            dirs.push(home.join(".copilot/logs")); // fallback
+        }
+        dirs
+    }
+
+    fn parse_line(&self, line: &str) -> Option<SkillInvocation> {
+        let name = extract_quoted_after(line, "executing tool `")
+            .or_else(|| extract_quoted_after(line, "invoked tool `"))
+            .or_else(|| extract_after_prefix(line, "tool: "))?;
+        Some(SkillInvocation {
+            skill_name: name.to_string(),
+            provider_id: self.provider_id().to_string(),
+            timestamp: Utc::now(),
+        })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Gemini CLI
+// ---------------------------------------------------------------------------
+
+pub struct GeminiLogParser;
+
+impl LogParser for GeminiLogParser {
+    fn provider_id(&self) -> &str {
+        "gemini-cli"
+    }
+
+    fn log_directories(&self) -> Vec<PathBuf> {
+        let mut dirs = Vec::new();
+        if let Some(home) = dirs_next::home_dir() {
+            dirs.push(home.join("Library/Logs/Gemini CLI")); // macOS
+            dirs.push(home.join(".local/share/Gemini CLI/logs")); // Linux
+            dirs.push(home.join(".gemini/logs")); // fallback
+        }
+        dirs
+    }
+
+    fn parse_line(&self, line: &str) -> Option<SkillInvocation> {
+        let name = extract_quoted_after(line, "executing skill `")
+            .or_else(|| extract_quoted_after(line, "skill `"))
+            .or_else(|| extract_after_prefix(line, "skill execution: "))?;
+        Some(SkillInvocation {
+            skill_name: name.to_string(),
+            provider_id: self.provider_id().to_string(),
+            timestamp: Utc::now(),
+        })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// AMP
+// ---------------------------------------------------------------------------
+
+pub struct AmpLogParser;
+
+impl LogParser for AmpLogParser {
+    fn provider_id(&self) -> &str {
+        "amp"
+    }
+
+    fn log_directories(&self) -> Vec<PathBuf> {
+        let mut dirs = Vec::new();
+        if let Some(home) = dirs_next::home_dir() {
+            dirs.push(home.join("Library/Logs/AMP")); // macOS
+            dirs.push(home.join(".local/share/AMP/logs")); // Linux
+            dirs.push(home.join(".amp/logs")); // fallback
+        }
+        dirs
+    }
+
+    fn parse_line(&self, line: &str) -> Option<SkillInvocation> {
+        let name = extract_quoted_after(line, "executing skill `")
+            .or_else(|| extract_quoted_after(line, "skill `"))
+            .or_else(|| extract_after_prefix(line, "skill: "))?;
         Some(SkillInvocation {
             skill_name: name.to_string(),
             provider_id: self.provider_id().to_string(),
@@ -141,6 +241,9 @@ pub fn default_parsers() -> Vec<Box<dyn LogParser>> {
     vec![
         Box::new(ClaudeCodeLogParser),
         Box::new(CopilotLogParser),
+        Box::new(CopilotCliLogParser),
+        Box::new(GeminiLogParser),
+        Box::new(AmpLogParser),
         Box::new(OpenCodeLogParser),
     ]
 }
@@ -237,7 +340,7 @@ mod tests {
         let line = "tool call: web-browsing-tool";
         let inv = p.parse_line(line).unwrap();
         assert_eq!(inv.skill_name, "web-browsing-tool");
-        assert_eq!(inv.provider_id, "copilot");
+        assert_eq!(inv.provider_id, "github-copilot");
     }
 
     #[test]

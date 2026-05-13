@@ -244,6 +244,15 @@ pub fn build_mcp_providers(workspace_root: &std::path::Path) -> Vec<Box<dyn McpP
         Box::new(crate::infra::provider::opencode::OpenCodeProvider::new(
             workspace_root.to_path_buf(),
         )),
+        Box::new(crate::infra::provider::github::GithubProvider::new(
+            workspace_root.to_path_buf(),
+        )),
+        Box::new(crate::infra::provider::gemini::GeminiProvider::new(
+            workspace_root.to_path_buf(),
+        )),
+        Box::new(crate::infra::provider::amp::AmpProvider::new(
+            workspace_root.to_path_buf(),
+        )),
     ]
 }
 
