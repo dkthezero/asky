@@ -54,9 +54,10 @@ jobs:
       - name: Install cross-compilation tools
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
-          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cross-rs/cross/main/install.sh | bash -s -- --git cross-rs/cross
+          cargo install cross --git https://github.com/cross-rs/cross
 
       - name: Build
+        shell: bash
         run: |
           if [ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]; then
             cross build --locked --release --target ${{ matrix.target }}
@@ -68,7 +69,7 @@ jobs:
         shell: bash
         run: |
           cd target/${{ matrix.target }}/release
-          if [[ "${{ matrix.archive }}" == "zip" ]]; then
+          if [ "${{ matrix.archive }}" == "zip" ]; then
             7z a ../../../agk-${{ github.ref_name }}-${{ matrix.target }}.zip agk.exe
           else
             tar czf ../../../agk-${{ github.ref_name }}-${{ matrix.target }}.tar.gz agk
