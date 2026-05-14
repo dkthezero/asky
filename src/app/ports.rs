@@ -58,6 +58,13 @@ pub trait ProviderPort: Send + Sync {
     ) -> Option<PathBuf> {
         None
     }
+
+    /// Return a list of alternative config root folder names this provider
+    /// supports. Each entry is (folder_name, description).
+    /// Default empty vec means the provider has a single hardcoded root.
+    fn available_config_roots(&self) -> Vec<(String, String)> {
+        vec![]
+    }
 }
 
 /// Extension trait for providers that support MCP configuration.
@@ -106,5 +113,27 @@ mod tests {
     fn feature_set_port_kind_name() {
         let f = TestFeatureSet;
         assert_eq!(f.kind_name(), "test");
+    }
+
+    struct DummyProvider;
+    impl ProviderPort for DummyProvider {
+        fn id(&self) -> &str {
+            "dummy"
+        }
+        fn name(&self) -> &str {
+            "Dummy"
+        }
+        fn install(&self, _: &ScannedPackage, _: Scope) -> Result<()> {
+            Ok(())
+        }
+        fn remove(&self, _: &AssetIdentity, _: &AssetKind, _: Scope) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn provider_port_default_available_roots_empty() {
+        let p = DummyProvider;
+        assert!(p.available_config_roots().is_empty());
     }
 }
