@@ -2,7 +2,7 @@
 
 ## Overview
 
-OpenCode is a file-based agent runtime with Claude Code compatibility. The adapter implements `ProviderPort` to copy skills to `.opencode/skills/` and merge skill references into `opencode.json`.
+OpenCode is a file-based agent runtime with Claude Code compatibility. The adapter implements `ProviderPort` to copy skills to `.opencode/skills/`. OpenCode auto-discovers skills by scanning this directory; no `skills` configuration array is written.
 
 ## Architecture Rules
 
@@ -13,22 +13,9 @@ OpenCode is a file-based agent runtime with Claude Code compatibility. The adapt
 
 ## Data Schemas
 
-### OpenCodeConfig (Internal)
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct OpenCodeConfig {
-    #[serde(default)]
-    skills: Vec<OpenCodeSkillRef>,
-    #[serde(flatten)]
-    other: serde_json::Map<String, serde_json::Value>, // preserve unknown keys
-}
+None required for skills. OpenCode auto-discovers skills from the `.opencode/skills/<name>/` directory layout.
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct OpenCodeSkillRef {
-    name: String,
-    path: String,
-}
-```
+For MCP, entries are written directly into `opencode.json` as raw `serde_json::Value` objects (see `McpProvider` trait).
 
 ## Internal Workflows
 
@@ -36,18 +23,12 @@ struct OpenCodeSkillRef {
 1. Determine scope (Global / Workspace).
 2. Compute destination: `provider_root(scope)/skills/{name}/SKILL.md`.
 3. Copy the skill directory to the destination using `infra::provider::common::copy_dir`.
-4. Load existing `opencode.json` (global or workspace).
-5. Parse as JSONC → `OpenCodeConfig`.
-6. Add or update the skill reference in `config.skills`.
-7. Serialize back to JSONC (preserve comments if possible; if not, write clean JSON).
-8. Write to the config file.
+4. **Do NOT modify** `opencode.json`. OpenCode discovers skills from the directory layout on startup.
 
 ### Remove Workflow
 1. Determine scope.
 2. Delete the skill directory.
-3. Load `opencode.json`.
-4. Remove the skill reference from `config.skills`.
-5. Write back.
+3. If a stale `"skills"` array exists in `opencode.json` (from earlier agk versions), strip it, because OpenCode rejects this key.
 
 ### JSONC Handling
 - Use `jsonc-parser` crate (or implement a simple comment stripper).
