@@ -17,17 +17,26 @@ impl ClaudeCodeProvider {
         Self { workspace_root }
     }
 
-    fn provider_root(&self, scope: &Scope) -> PathBuf {
+    fn provider_root(
+        &self,
+        scope: &Scope,
+        config: Option<&crate::domain::config::ConfigFile>,
+    ) -> PathBuf {
+        let folder = config
+            .and_then(|c| c.provider_roots.get(self.id()))
+            .map(|s| s.as_str())
+            .unwrap_or(".claude");
         match scope {
             Scope::Global => dirs_next::home_dir()
                 .unwrap_or_else(|| PathBuf::from("."))
-                .join(".claude"),
-            Scope::Workspace => self.workspace_root.join(".claude"),
+                .join(".config")
+                .join(folder.trim_start_matches('.')),
+            Scope::Workspace => self.workspace_root.join(folder),
         }
     }
 
     fn asset_dir(&self, scope: &Scope, kind: &AssetKind, name: &str) -> PathBuf {
-        let root = self.provider_root(scope);
+        let root = self.provider_root(scope, None);
         match kind {
             AssetKind::Skill => root.join("skills").join(name),
             AssetKind::Instruction => root.join("instructions").join(name),
@@ -36,7 +45,7 @@ impl ClaudeCodeProvider {
     }
 
     fn mcp_json_path(&self, scope: &Scope) -> PathBuf {
-        self.provider_root(scope).join("mcp.json")
+        self.provider_root(scope, None).join("mcp.json")
     }
 
     fn load_mcp_config(&self, scope: &Scope) -> Result<serde_json::Value> {
@@ -90,6 +99,16 @@ impl ProviderPort for ClaudeCodeProvider {
             return None;
         }
         Some(self.asset_dir(&scope, kind, &identity.name))
+    }
+
+    fn available_config_roots(&self) -> Vec<(String, String)> {
+        vec![
+            (
+                ".claude".to_string(),
+                "Claude Code native folder".to_string(),
+            ),
+            (".agents".to_string(), "Shared agents folder".to_string()),
+        ]
     }
 }
 
@@ -210,5 +229,17 @@ mod tests {
         let identity = AssetIdentity::new("ghost", None, "0000000000");
         let result = provider.remove(&identity, &AssetKind::Skill, Scope::Workspace);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn claude_provider_root_uses_config_override() {
+        let dir = tempfile::tempdir().unwrap();
+        let provider = ClaudeCodeProvider::new(dir.path().to_path_buf());
+        let mut config = crate::domain::config::ConfigFile::default();
+        config
+            .provider_roots
+            .insert("claude-code".to_string(), ".agents".to_string());
+        let root = provider.provider_root(&Scope::Workspace, Some(&config));
+        assert_eq!(root, dir.path().join(".agents"));
     }
 }
