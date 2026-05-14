@@ -17,18 +17,26 @@ impl OpenCodeProvider {
         Self { workspace_root }
     }
 
-    fn provider_root(&self, scope: &Scope) -> PathBuf {
+    fn provider_root(
+        &self,
+        scope: &Scope,
+        config: Option<&crate::domain::config::ConfigFile>,
+    ) -> PathBuf {
+        let folder = config
+            .and_then(|c| c.provider_roots.get("opencode"))
+            .map(|s| s.as_str())
+            .unwrap_or(".opencode");
         match scope {
             Scope::Global => dirs_next::home_dir()
                 .unwrap_or_else(|| PathBuf::from("."))
                 .join(".config")
-                .join("opencode"),
-            Scope::Workspace => self.workspace_root.join(".opencode"),
+                .join(folder.trim_start_matches('.')),
+            Scope::Workspace => self.workspace_root.join(folder),
         }
     }
 
     fn asset_dir(&self, scope: &Scope, kind: &AssetKind, name: &str) -> PathBuf {
-        let root = self.provider_root(scope);
+        let root = self.provider_root(scope, None);
         match kind {
             AssetKind::Skill => root.join("skills").join(name),
             AssetKind::Instruction => root.join("instructions").join(name),
@@ -89,6 +97,19 @@ impl ProviderPort for OpenCodeProvider {
         // earlier version.  OpenCode rejects this key, so we quietly strip it.
         self.drop_stale_skills_array(&scope)?;
         Ok(())
+    }
+
+    fn available_config_roots(&self) -> Vec<(String, String)> {
+        vec![
+            (
+                ".opencode".to_string(),
+                "OpenCode native folder".to_string(),
+            ),
+            (
+                ".agents".to_string(),
+                "Shared agents folder (Claude-compatible)".to_string(),
+            ),
+        ]
     }
 }
 
@@ -277,6 +298,7 @@ fn strip_jsonc_comments(input: &str) -> String {
 mod tests {
     use super::*;
     use crate::domain::asset::AssetKind;
+    use crate::domain::config::ConfigFile;
 
     fn make_pkg(
         dir: &std::path::Path,
@@ -399,6 +421,18 @@ mod tests {
         let cleaned = strip_jsonc_comments(input);
         assert!(!cleaned.contains("/* This is a"));
         assert!(cleaned.contains("\"key\": \"value\""));
+    }
+
+    #[test]
+    fn opencode_provider_root_uses_config_override() {
+        let dir = tempfile::tempdir().unwrap();
+        let provider = OpenCodeProvider::new(dir.path().to_path_buf());
+        let mut config = ConfigFile::default();
+        config
+            .provider_roots
+            .insert("opencode".to_string(), ".agents".to_string());
+        let root = provider.provider_root(&Scope::Workspace, Some(&config));
+        assert_eq!(root, dir.path().join(".agents"));
     }
 
     #[test]
