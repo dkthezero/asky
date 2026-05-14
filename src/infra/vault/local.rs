@@ -47,25 +47,34 @@ impl VaultPort for LocalVaultAdapter {
             }
             let files = feature.hash_files(&path);
             let sha10 = compute_sha10(&files)?;
-            let name = path
+            let dir_name = path
                 .file_name()
                 .unwrap_or_default()
                 .to_string_lossy()
                 .into_owned();
             let version = feature.extract_version(&path);
-            let identity = AssetIdentity::new(name, version, sha10);
 
-            // Parse frontmatter for dependencies (meta-skill support)
+            // Parse frontmatter for dependencies and metadata (meta-skill support)
             let mut requires = Vec::new();
             let mut requires_optional = Vec::new();
+            let mut author = None;
+            let mut description = None;
+            let mut name = dir_name;
             if feature.asset_kind() == crate::domain::asset::AssetKind::Skill {
                 if let Ok(content) = std::fs::read_to_string(path.join("SKILL.md")) {
                     if let Some(fm) = feature::extract_frontmatter(&content) {
                         requires = fm.requires;
                         requires_optional = fm.requires_optional;
+                        author = fm.author;
+                        description = fm.description;
+                        if let Some(fm_name) = fm.name {
+                            name = fm_name;
+                        }
                     }
                 }
             }
+
+            let identity = AssetIdentity::new(name, version, sha10);
 
             packages.push(ScannedPackage {
                 identity,
@@ -76,6 +85,8 @@ impl VaultPort for LocalVaultAdapter {
                 remote_meta: None,
                 requires,
                 requires_optional,
+                author,
+                description,
             });
         }
 

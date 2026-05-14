@@ -3,6 +3,7 @@ use crate::domain::asset::{AssetKind, ScannedPackage};
 use crate::domain::identity::AssetIdentity;
 use crate::domain::mcp::{McpServer, McpTransport};
 use crate::domain::scope::Scope;
+use crate::infra::provider::common;
 use crate::infra::provider::common::copy_dir;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -112,9 +113,7 @@ impl ProviderPort for OpenCodeProvider {
 
     fn remove(&self, identity: &AssetIdentity, kind: &AssetKind, scope: Scope) -> Result<()> {
         let dest = self.asset_dir(&scope, kind, &identity.name);
-        if dest.exists() {
-            std::fs::remove_dir_all(&dest)?;
-        }
+        common::remove_dir_and_prune_empty_parents(&dest, 2)?;
 
         // Remove skill reference from opencode.json
         let mut config = self.load_config(&scope)?;
@@ -318,6 +317,8 @@ mod tests {
             remote_meta: None,
             requires: vec![],
             requires_optional: vec![],
+            author: None,
+            description: None,
         }
     }
 

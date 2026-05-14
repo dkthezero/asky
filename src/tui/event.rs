@@ -1476,6 +1476,8 @@ mod tests {
                     remote_meta: None,
                     requires: vec![],
                     requires_optional: vec![],
+                    author: None,
+                    description: None,
                 },
                 crate::domain::asset::ScannedPackage {
                     identity: crate::domain::identity::AssetIdentity::new("b", None, "hash"),
@@ -1486,6 +1488,8 @@ mod tests {
                     remote_meta: None,
                     requires: vec![],
                     requires_optional: vec![],
+                    author: None,
+                    description: None,
                 },
             ],
         );
@@ -1602,6 +1606,8 @@ mod tests {
             remote_meta: None,
             requires: vec![],
             requires_optional: vec![],
+            author: None,
+            description: None,
         };
         state.packages.insert(0, vec![pkg.clone()]);
         state.tab_kinds = vec![crate::tui::app::TabKind::Asset];

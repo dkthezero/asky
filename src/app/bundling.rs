@@ -262,6 +262,8 @@ mod tests {
             remote_meta: None,
             requires,
             requires_optional: vec![],
+            author: None,
+            description: None,
         }
     }
 

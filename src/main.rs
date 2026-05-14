@@ -32,8 +32,9 @@ async fn main() -> Result<()> {
     }
 
     // No subcommand — launch TUI
-    let workspace_for_ctx = workspace.clone();
     let (registry, scan, store) = app::bootstrap::build(workspace)?;
+
+    let workspace_for_ctx = std::env::current_dir()?;
 
     let tab_names: Vec<String> = registry
         .feature_sets
@@ -53,6 +54,7 @@ async fn main() -> Result<()> {
         &active_config_for_entries,
         &scan,
         &registry,
+        &workspace_for_ctx,
     );
     let provider_entries =
         app::bootstrap::build_provider_entries(&active_config_for_entries, &registry);
@@ -219,6 +221,7 @@ where
                         &active_config_for_entries,
                         &scan,
                         &ctx.registry,
+                        &ctx.workspace_root,
                     );
                     state.provider_entries = crate::app::bootstrap::build_provider_entries(
                         &active_config_for_entries,

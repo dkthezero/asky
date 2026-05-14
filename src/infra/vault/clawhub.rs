@@ -97,6 +97,8 @@ pub fn cli_search(query: &str) -> Result<Vec<ScannedPackage>> {
             remote_meta: meta,
             requires: vec![],
             requires_optional: vec![],
+            author: None,
+            description: None,
         });
     }
     Ok(packages)

@@ -78,7 +78,12 @@ pub fn draw(frame: &mut Frame, state: &AppState) {
                 state.selected_index,
             );
             let selected_provider = state.provider_entries.get(state.selected_index);
-            detail::render_provider_detail(frame, layout.detail, selected_provider);
+            detail::render_provider_detail(
+                frame,
+                layout.detail,
+                selected_provider,
+                state.active_scope,
+            );
         }
         TabKind::Mcp => {
             let list_area = layout.list;
