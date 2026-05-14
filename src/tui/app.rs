@@ -28,6 +28,11 @@ pub enum ListMode {
     RegisterMcpStepTransport,
     RegisterMcpStepDescription,
     ConfirmMcpTest,
+    SelectProviderRoot {
+        provider_id: String,
+        options: Vec<(String, String)>,
+        selected: usize,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
