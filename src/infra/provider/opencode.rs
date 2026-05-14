@@ -5,9 +5,7 @@ use crate::domain::mcp::{McpServer, McpTransport};
 use crate::domain::scope::Scope;
 use crate::infra::provider::common;
 use crate::infra::provider::common::copy_dir;
-use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use anyhow::Result;
 use std::path::PathBuf;
 
 pub struct OpenCodeProvider {
@@ -48,29 +46,6 @@ impl OpenCodeProvider {
             Scope::Workspace => self.workspace_root.join("opencode.json"),
         }
     }
-
-    fn load_config(&self, scope: &Scope) -> Result<OpenCodeConfig> {
-        let path = self.config_path(scope);
-        if !path.exists() {
-            return Ok(OpenCodeConfig::default());
-        }
-        let content = std::fs::read_to_string(&path)
-            .with_context(|| format!("reading {}", path.display()))?;
-        let cleaned = strip_jsonc_comments(&content);
-        let config: OpenCodeConfig = serde_json::from_str(&cleaned)
-            .with_context(|| format!("parsing JSON config at {}", path.display()))?;
-        Ok(config)
-    }
-
-    fn save_config(&self, scope: &Scope, config: &OpenCodeConfig) -> Result<()> {
-        let path = self.config_path(scope);
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        let content = serde_json::to_string_pretty(config)?;
-        std::fs::write(&path, content).with_context(|| format!("writing {}", path.display()))?;
-        Ok(())
-    }
 }
 
 impl ProviderPort for OpenCodeProvider {
@@ -98,16 +73,11 @@ impl ProviderPort for OpenCodeProvider {
         let dest = self.asset_dir(&scope, &pkg.kind, &pkg.identity.name);
         copy_dir(&pkg.path, &dest)?;
 
-        // Merge skill reference into opencode.json
-        let mut config = self.load_config(&scope)?;
-        let skill_ref = SkillRef {
-            name: pkg.identity.name.clone(),
-            path: dest.to_string_lossy().into_owned(),
-        };
-        config.skills.retain(|s| s.name != pkg.identity.name);
-        config.skills.push(skill_ref);
-        self.save_config(&scope, &config)?;
-
+        // OpenCode does NOT accept a "skills" key in opencode.json.
+        // Skills are auto-discovered from the .opencode/skills directory.
+        // Self-heal: strip any stale "skills" array left by older agk versions
+        // so users upgrading from the buggy build get a working config.
+        self.drop_stale_skills_array(&scope)?;
         Ok(())
     }
 
@@ -115,11 +85,9 @@ impl ProviderPort for OpenCodeProvider {
         let dest = self.asset_dir(&scope, kind, &identity.name);
         common::remove_dir_and_prune_empty_parents(&dest, 2)?;
 
-        // Remove skill reference from opencode.json
-        let mut config = self.load_config(&scope)?;
-        config.skills.retain(|s| s.name != identity.name);
-        self.save_config(&scope, &config)?;
-
+        // Also remove any stale "skills" array that agk may have written in an
+        // earlier version.  OpenCode rejects this key, so we quietly strip it.
+        self.drop_stale_skills_array(&scope)?;
         Ok(())
     }
 }
@@ -207,21 +175,32 @@ impl McpProvider for OpenCodeProvider {
 }
 
 // ---------------------------------------------------------------------------
-// Config types
+// Internal helpers
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-struct OpenCodeConfig {
-    #[serde(default)]
-    skills: Vec<SkillRef>,
-    #[serde(flatten)]
-    other: HashMap<String, serde_json::Value>,
-}
+impl OpenCodeProvider {
+    /// Remove a stale `"skills": [...]` array that earlier versions of agk
+    /// wrote into opencode.json. OpenCode rejects this key, so we strip it.
+    fn drop_stale_skills_array(&self, scope: &Scope) -> Result<()> {
+        let path = self.config_path(scope);
+        if !path.exists() {
+            return Ok(());
+        }
+        let content = std::fs::read_to_string(&path)?;
+        let cleaned = strip_jsonc_comments(&content);
+        let mut config: serde_json::Value = match serde_json::from_str(&cleaned) {
+            Ok(v) => v,
+            Err(_) => return Ok(()),
+        };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct SkillRef {
-    name: String,
-    path: String,
+        if let Some(obj) = config.as_object_mut() {
+            if obj.remove("skills").is_some() {
+                let content = serde_json::to_string_pretty(&config)?;
+                std::fs::write(&path, content)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -351,7 +330,7 @@ mod tests {
     }
 
     #[test]
-    fn install_updates_opencode_json() {
+    fn install_does_not_add_skills_key() {
         let dir = tempfile::tempdir().unwrap();
         let src_dir = dir.path().join("source");
         std::fs::create_dir(&src_dir).unwrap();
@@ -360,20 +339,17 @@ mod tests {
         provider.install(&pkg, Scope::Workspace).unwrap();
 
         let config_path = dir.path().join("opencode.json");
-        assert!(config_path.exists());
-        let content = std::fs::read_to_string(config_path).unwrap();
-        assert!(content.contains("my-skill"));
-        assert!(content.contains(".opencode/skills/my-skill"));
+        assert!(!config_path.exists());
     }
 
     #[test]
-    fn remove_skill_deletes_directory_and_updates_config() {
+    fn remove_skill_deletes_directory_and_drops_stale_skills_key() {
         let dir = tempfile::tempdir().unwrap();
         let dest = dir.path().join(".opencode/skills/my-skill");
         std::fs::create_dir_all(&dest).unwrap();
         std::fs::write(dest.join("SKILL.md"), "x").unwrap();
 
-        // Pre-populate config
+        // Pre-populate config with a stale skills array (old agk output)
         let config_path = dir.path().join("opencode.json");
         std::fs::write(
             &config_path,
@@ -390,6 +366,7 @@ mod tests {
 
         let content = std::fs::read_to_string(config_path).unwrap();
         assert!(!content.contains("my-skill"));
+        assert!(!content.contains("skills"));
     }
 
     #[test]
@@ -425,7 +402,7 @@ mod tests {
     }
 
     #[test]
-    fn merge_preserves_other_keys() {
+    fn install_heals_stale_skills_key() {
         let dir = tempfile::tempdir().unwrap();
         let config_path = dir.path().join("opencode.json");
         std::fs::write(
@@ -442,6 +419,7 @@ mod tests {
 
         let content = std::fs::read_to_string(config_path).unwrap();
         assert!(content.contains("customKey"));
-        assert!(content.contains("my-skill"));
+        assert!(!content.contains("skills"));
+        assert!(!content.contains(".opencode/skills/my-skill"));
     }
 }
