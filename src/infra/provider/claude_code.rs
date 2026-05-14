@@ -35,8 +35,14 @@ impl ClaudeCodeProvider {
         }
     }
 
-    fn asset_dir(&self, scope: &Scope, kind: &AssetKind, name: &str) -> PathBuf {
-        let root = self.provider_root(scope, None);
+    fn asset_dir(
+        &self,
+        scope: &Scope,
+        kind: &AssetKind,
+        name: &str,
+        config: Option<&crate::domain::config::ConfigFile>,
+    ) -> PathBuf {
+        let root = self.provider_root(scope, config);
         match kind {
             AssetKind::Skill => root.join("skills").join(name),
             AssetKind::Instruction => root.join("instructions").join(name),
@@ -78,13 +84,24 @@ impl ProviderPort for ClaudeCodeProvider {
         "Claude Code"
     }
 
-    fn install(&self, pkg: &ScannedPackage, scope: Scope) -> Result<()> {
-        let dest = self.asset_dir(&scope, &pkg.kind, &pkg.identity.name);
+    fn install(
+        &self,
+        pkg: &ScannedPackage,
+        scope: Scope,
+        config: Option<&crate::domain::config::ConfigFile>,
+    ) -> Result<()> {
+        let dest = self.asset_dir(&scope, &pkg.kind, &pkg.identity.name, config);
         copy_dir(&pkg.path, &dest)
     }
 
-    fn remove(&self, identity: &AssetIdentity, kind: &AssetKind, scope: Scope) -> Result<()> {
-        let dest = self.asset_dir(&scope, kind, &identity.name);
+    fn remove(
+        &self,
+        identity: &AssetIdentity,
+        kind: &AssetKind,
+        scope: Scope,
+        config: Option<&crate::domain::config::ConfigFile>,
+    ) -> Result<()> {
+        let dest = self.asset_dir(&scope, kind, &identity.name, config);
         common::remove_dir_and_prune_empty_parents(&dest, 2)?;
         Ok(())
     }
@@ -98,7 +115,7 @@ impl ProviderPort for ClaudeCodeProvider {
         if *kind == AssetKind::McpServer {
             return None;
         }
-        Some(self.asset_dir(&scope, kind, &identity.name))
+        Some(self.asset_dir(&scope, kind, &identity.name, None))
     }
 
     fn available_config_roots(&self) -> Vec<(String, String)> {
@@ -190,7 +207,7 @@ mod tests {
         std::fs::create_dir(&src_dir).unwrap();
         let pkg = make_pkg(&src_dir, "my-skill", AssetKind::Skill, "SKILL.md");
         let provider = ClaudeCodeProvider::new(dir.path().to_path_buf());
-        provider.install(&pkg, Scope::Workspace).unwrap();
+        provider.install(&pkg, Scope::Workspace, None).unwrap();
         assert!(dir.path().join(".claude/skills/my-skill/SKILL.md").exists());
     }
 
@@ -201,7 +218,7 @@ mod tests {
         std::fs::create_dir(&src_dir).unwrap();
         let pkg = make_pkg(&src_dir, "my-inst", AssetKind::Instruction, "AGENTS.md");
         let provider = ClaudeCodeProvider::new(dir.path().to_path_buf());
-        provider.install(&pkg, Scope::Workspace).unwrap();
+        provider.install(&pkg, Scope::Workspace, None).unwrap();
         assert!(dir
             .path()
             .join(".claude/instructions/my-inst/AGENTS.md")
@@ -217,7 +234,7 @@ mod tests {
         let provider = ClaudeCodeProvider::new(dir.path().to_path_buf());
         let identity = AssetIdentity::new("my-skill", None, "0000000000");
         provider
-            .remove(&identity, &AssetKind::Skill, Scope::Workspace)
+            .remove(&identity, &AssetKind::Skill, Scope::Workspace, None)
             .unwrap();
         assert!(!dest.exists());
     }
@@ -227,7 +244,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let provider = ClaudeCodeProvider::new(dir.path().to_path_buf());
         let identity = AssetIdentity::new("ghost", None, "0000000000");
-        let result = provider.remove(&identity, &AssetKind::Skill, Scope::Workspace);
+        let result = provider.remove(&identity, &AssetKind::Skill, Scope::Workspace, None);
         assert!(result.is_ok());
     }
 

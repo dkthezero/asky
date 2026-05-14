@@ -623,7 +623,7 @@ fn handle_space_provider(state: &mut AppState, ctx: &EventContext) -> Result<()>
                     let _ = store.save(scope, &config);
 
                     for (i, pkg) in installed_pkgs.iter().enumerate() {
-                        let _ = provider.remove(&pkg.identity, &pkg.kind, scope);
+                        let _ = provider.remove(&pkg.identity, &pkg.kind, scope, Some(&config));
                         let percent = (((i + 1) as f32 / total.max(1) as f32) * 100.0) as u8;
                         let _ = tx.send(AppEvent::TaskProgress { id, percent });
                     }
@@ -1581,6 +1581,7 @@ mod tests {
             &self,
             _pkg: &crate::domain::asset::ScannedPackage,
             _scope: Scope,
+            _config: Option<&crate::domain::config::ConfigFile>,
         ) -> Result<()> {
             Ok(())
         }
@@ -1589,6 +1590,7 @@ mod tests {
             _identity: &AssetIdentity,
             _kind: &AssetKind,
             _scope: Scope,
+            _config: Option<&crate::domain::config::ConfigFile>,
         ) -> Result<()> {
             Ok(())
         }

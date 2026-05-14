@@ -17,7 +17,7 @@ pub fn install_asset(
     if config.providers.is_empty() {
         bail!("No provider configured for {:?} scope", scope);
     }
-    provider.install(pkg, scope)?;
+    provider.install(pkg, scope, Some(&config))?;
     let section = config.vault_defs.entry(pkg.vault_id.clone()).or_default();
     let identity_str = pkg.identity.to_config_string();
     match pkg.kind {
@@ -49,8 +49,8 @@ pub fn remove_asset(
     store: &dyn ConfigStorePort,
     provider: &dyn ProviderPort,
 ) -> Result<()> {
-    provider.remove(identity, kind, scope)?;
     let mut config = store.load(scope)?;
+    provider.remove(identity, kind, scope, Some(&config))?;
     if let Some(section) = config.vault_defs.get_mut(vault_id) {
         let identity_str = identity.to_config_string();
         match kind {
@@ -219,14 +219,25 @@ mod tests {
         fn name(&self) -> &str {
             "Fake"
         }
-        fn install(&self, pkg: &ScannedPackage, _scope: Scope) -> Result<()> {
+        fn install(
+            &self,
+            pkg: &ScannedPackage,
+            _scope: Scope,
+            _config: Option<&ConfigFile>,
+        ) -> Result<()> {
             self.installed
                 .lock()
                 .unwrap()
                 .push(pkg.identity.name.clone());
             Ok(())
         }
-        fn remove(&self, identity: &AssetIdentity, _kind: &AssetKind, _scope: Scope) -> Result<()> {
+        fn remove(
+            &self,
+            identity: &AssetIdentity,
+            _kind: &AssetKind,
+            _scope: Scope,
+            _config: Option<&ConfigFile>,
+        ) -> Result<()> {
             self.removed.lock().unwrap().push(identity.name.clone());
             Ok(())
         }

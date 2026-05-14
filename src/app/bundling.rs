@@ -239,7 +239,12 @@ mod tests {
         fn name(&self) -> &str {
             "Fake"
         }
-        fn install(&self, _pkg: &ScannedPackage, _scope: Scope) -> Result<()> {
+        fn install(
+            &self,
+            _pkg: &ScannedPackage,
+            _scope: Scope,
+            _config: Option<&crate::domain::config::ConfigFile>,
+        ) -> Result<()> {
             Ok(())
         }
         fn remove(
@@ -247,6 +252,7 @@ mod tests {
             _identity: &AssetIdentity,
             _kind: &AssetKind,
             _scope: Scope,
+            _config: Option<&crate::domain::config::ConfigFile>,
         ) -> Result<()> {
             Ok(())
         }

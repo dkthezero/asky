@@ -35,8 +35,14 @@ impl OpenCodeProvider {
         }
     }
 
-    fn asset_dir(&self, scope: &Scope, kind: &AssetKind, name: &str) -> PathBuf {
-        let root = self.provider_root(scope, None);
+    fn asset_dir(
+        &self,
+        scope: &Scope,
+        kind: &AssetKind,
+        name: &str,
+        config: Option<&crate::domain::config::ConfigFile>,
+    ) -> PathBuf {
+        let root = self.provider_root(scope, config);
         match kind {
             AssetKind::Skill => root.join("skills").join(name),
             AssetKind::Instruction => root.join("instructions").join(name),
@@ -74,11 +80,16 @@ impl ProviderPort for OpenCodeProvider {
         if *kind == AssetKind::McpServer {
             return None;
         }
-        Some(self.asset_dir(&scope, kind, &identity.name))
+        Some(self.asset_dir(&scope, kind, &identity.name, None))
     }
 
-    fn install(&self, pkg: &ScannedPackage, scope: Scope) -> Result<()> {
-        let dest = self.asset_dir(&scope, &pkg.kind, &pkg.identity.name);
+    fn install(
+        &self,
+        pkg: &ScannedPackage,
+        scope: Scope,
+        config: Option<&crate::domain::config::ConfigFile>,
+    ) -> Result<()> {
+        let dest = self.asset_dir(&scope, &pkg.kind, &pkg.identity.name, config);
         copy_dir(&pkg.path, &dest)?;
 
         // OpenCode does NOT accept a "skills" key in opencode.json.
@@ -89,8 +100,14 @@ impl ProviderPort for OpenCodeProvider {
         Ok(())
     }
 
-    fn remove(&self, identity: &AssetIdentity, kind: &AssetKind, scope: Scope) -> Result<()> {
-        let dest = self.asset_dir(&scope, kind, &identity.name);
+    fn remove(
+        &self,
+        identity: &AssetIdentity,
+        kind: &AssetKind,
+        scope: Scope,
+        config: Option<&crate::domain::config::ConfigFile>,
+    ) -> Result<()> {
+        let dest = self.asset_dir(&scope, kind, &identity.name, config);
         common::remove_dir_and_prune_empty_parents(&dest, 2)?;
 
         // Also remove any stale "skills" array that agk may have written in an
@@ -330,7 +347,7 @@ mod tests {
         std::fs::create_dir(&src_dir).unwrap();
         let pkg = make_pkg(&src_dir, "my-skill", AssetKind::Skill, "SKILL.md");
         let provider = OpenCodeProvider::new(dir.path().to_path_buf());
-        provider.install(&pkg, Scope::Workspace).unwrap();
+        provider.install(&pkg, Scope::Workspace, None).unwrap();
         assert!(dir
             .path()
             .join(".opencode/skills/my-skill/SKILL.md")
@@ -344,7 +361,7 @@ mod tests {
         std::fs::create_dir(&src_dir).unwrap();
         let pkg = make_pkg(&src_dir, "my-inst", AssetKind::Instruction, "AGENTS.md");
         let provider = OpenCodeProvider::new(dir.path().to_path_buf());
-        provider.install(&pkg, Scope::Workspace).unwrap();
+        provider.install(&pkg, Scope::Workspace, None).unwrap();
         assert!(dir
             .path()
             .join(".opencode/instructions/my-inst/AGENTS.md")
@@ -358,7 +375,7 @@ mod tests {
         std::fs::create_dir(&src_dir).unwrap();
         let pkg = make_pkg(&src_dir, "my-skill", AssetKind::Skill, "SKILL.md");
         let provider = OpenCodeProvider::new(dir.path().to_path_buf());
-        provider.install(&pkg, Scope::Workspace).unwrap();
+        provider.install(&pkg, Scope::Workspace, None).unwrap();
 
         let config_path = dir.path().join("opencode.json");
         assert!(!config_path.exists());
@@ -382,7 +399,7 @@ mod tests {
         let provider = OpenCodeProvider::new(dir.path().to_path_buf());
         let identity = AssetIdentity::new("my-skill", None, "0000000000");
         provider
-            .remove(&identity, &AssetKind::Skill, Scope::Workspace)
+            .remove(&identity, &AssetKind::Skill, Scope::Workspace, None)
             .unwrap();
         assert!(!dest.exists());
 
@@ -396,7 +413,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let provider = OpenCodeProvider::new(dir.path().to_path_buf());
         let identity = AssetIdentity::new("ghost", None, "0000000000");
-        let result = provider.remove(&identity, &AssetKind::Skill, Scope::Workspace);
+        let result = provider.remove(&identity, &AssetKind::Skill, Scope::Workspace, None);
         assert!(result.is_ok());
     }
 
@@ -449,7 +466,7 @@ mod tests {
         std::fs::create_dir(&src_dir).unwrap();
         let pkg = make_pkg(&src_dir, "my-skill", AssetKind::Skill, "SKILL.md");
         let provider = OpenCodeProvider::new(dir.path().to_path_buf());
-        provider.install(&pkg, Scope::Workspace).unwrap();
+        provider.install(&pkg, Scope::Workspace, None).unwrap();
 
         let content = std::fs::read_to_string(config_path).unwrap();
         assert!(content.contains("customKey"));

@@ -35,8 +35,14 @@ impl GeminiProvider {
         }
     }
 
-    fn asset_dir(&self, scope: &Scope, kind: &AssetKind, name: &str) -> PathBuf {
-        let root = self.provider_root(scope, None);
+    fn asset_dir(
+        &self,
+        scope: &Scope,
+        kind: &AssetKind,
+        name: &str,
+        config: Option<&crate::domain::config::ConfigFile>,
+    ) -> PathBuf {
+        let root = self.provider_root(scope, config);
         match kind {
             AssetKind::Skill => root.join("skills").join(name),
             AssetKind::Instruction => root.join("instructions").join(name),
@@ -78,13 +84,24 @@ impl ProviderPort for GeminiProvider {
         "Gemini CLI"
     }
 
-    fn install(&self, pkg: &ScannedPackage, scope: Scope) -> Result<()> {
-        let dest = self.asset_dir(&scope, &pkg.kind, &pkg.identity.name);
+    fn install(
+        &self,
+        pkg: &ScannedPackage,
+        scope: Scope,
+        config: Option<&crate::domain::config::ConfigFile>,
+    ) -> Result<()> {
+        let dest = self.asset_dir(&scope, &pkg.kind, &pkg.identity.name, config);
         copy_dir(&pkg.path, &dest)
     }
 
-    fn remove(&self, identity: &AssetIdentity, kind: &AssetKind, scope: Scope) -> Result<()> {
-        let dest = self.asset_dir(&scope, kind, &identity.name);
+    fn remove(
+        &self,
+        identity: &AssetIdentity,
+        kind: &AssetKind,
+        scope: Scope,
+        config: Option<&crate::domain::config::ConfigFile>,
+    ) -> Result<()> {
+        let dest = self.asset_dir(&scope, kind, &identity.name, config);
         common::remove_dir_and_prune_empty_parents(&dest, 2)?;
         Ok(())
     }
@@ -98,7 +115,7 @@ impl ProviderPort for GeminiProvider {
         if *kind == AssetKind::McpServer {
             return None;
         }
-        Some(self.asset_dir(&scope, kind, &identity.name))
+        Some(self.asset_dir(&scope, kind, &identity.name, None))
     }
 
     fn available_config_roots(&self) -> Vec<(String, String)> {

@@ -45,8 +45,19 @@ pub trait ConfigStorePort: Send + Sync {
 pub trait ProviderPort: Send + Sync {
     fn id(&self) -> &str;
     fn name(&self) -> &str;
-    fn install(&self, pkg: &ScannedPackage, scope: Scope) -> Result<()>;
-    fn remove(&self, identity: &AssetIdentity, kind: &AssetKind, scope: Scope) -> Result<()>;
+    fn install(
+        &self,
+        pkg: &ScannedPackage,
+        scope: Scope,
+        config: Option<&ConfigFile>,
+    ) -> Result<()>;
+    fn remove(
+        &self,
+        identity: &AssetIdentity,
+        kind: &AssetKind,
+        scope: Scope,
+        config: Option<&ConfigFile>,
+    ) -> Result<()>;
 
     /// Return the expected on-disk install path for the given asset, if known.
     /// Defaults to `None` for providers where the path convention is not exposed.
@@ -123,10 +134,16 @@ mod tests {
         fn name(&self) -> &str {
             "Dummy"
         }
-        fn install(&self, _: &ScannedPackage, _: Scope) -> Result<()> {
+        fn install(&self, _: &ScannedPackage, _: Scope, _: Option<&ConfigFile>) -> Result<()> {
             Ok(())
         }
-        fn remove(&self, _: &AssetIdentity, _: &AssetKind, _: Scope) -> Result<()> {
+        fn remove(
+            &self,
+            _: &AssetIdentity,
+            _: &AssetKind,
+            _: Scope,
+            _: Option<&ConfigFile>,
+        ) -> Result<()> {
             Ok(())
         }
     }
