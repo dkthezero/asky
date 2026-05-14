@@ -473,4 +473,41 @@ mod tests {
         assert!(!content.contains("skills"));
         assert!(!content.contains(".opencode/skills/my-skill"));
     }
+
+    #[test]
+    fn opencode_install_uses_agents_when_configured() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = ConfigFile::default();
+        config.provider_roots.insert("opencode".to_string(), ".agents".to_string());
+
+        let src_dir = dir.path().join("source");
+        std::fs::create_dir(&src_dir).unwrap();
+        let pkg = make_pkg(&src_dir, "my-skill", AssetKind::Skill, "SKILL.md");
+        let provider = OpenCodeProvider::new(dir.path().to_path_buf());
+        provider.install(&pkg, Scope::Workspace, Some(&config)).unwrap();
+
+        // Should be in .agents, not .opencode
+        assert!(dir.path().join(".agents/skills/my-skill/SKILL.md").exists());
+        assert!(!dir.path().join(".opencode/skills/my-skill/SKILL.md").exists());
+    }
+
+    #[test]
+    fn opencode_and_claude_share_agents_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = ConfigFile::default();
+        config.provider_roots.insert("opencode".to_string(), ".agents".to_string());
+        config.provider_roots.insert("claude-code".to_string(), ".agents".to_string());
+
+        let opencode = OpenCodeProvider::new(dir.path().to_path_buf());
+        let claude = crate::infra::provider::claude_code::ClaudeCodeProvider::new(dir.path().to_path_buf());
+
+        assert_eq!(
+            opencode.provider_root(&Scope::Workspace, Some(&config)),
+            dir.path().join(".agents")
+        );
+        assert_eq!(
+            claude.provider_root(&Scope::Workspace, Some(&config)),
+            dir.path().join(".agents")
+        );
+    }
 }

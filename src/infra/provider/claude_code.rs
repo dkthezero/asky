@@ -17,7 +17,7 @@ impl ClaudeCodeProvider {
         Self { workspace_root }
     }
 
-    fn provider_root(
+    pub(crate) fn provider_root(
         &self,
         scope: &Scope,
         config: Option<&crate::domain::config::ConfigFile>,
@@ -258,5 +258,21 @@ mod tests {
             .insert("claude-code".to_string(), ".agents".to_string());
         let root = provider.provider_root(&Scope::Workspace, Some(&config));
         assert_eq!(root, dir.path().join(".agents"));
+    }
+
+    #[test]
+    fn claude_install_uses_agents_when_configured() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = crate::domain::config::ConfigFile::default();
+        config.provider_roots.insert("claude-code".to_string(), ".agents".to_string());
+
+        let src_dir = dir.path().join("source");
+        std::fs::create_dir(&src_dir).unwrap();
+        let pkg = make_pkg(&src_dir, "my-skill", AssetKind::Skill, "SKILL.md");
+        let provider = ClaudeCodeProvider::new(dir.path().to_path_buf());
+        provider.install(&pkg, Scope::Workspace, Some(&config)).unwrap();
+
+        assert!(dir.path().join(".agents/skills/my-skill/SKILL.md").exists());
+        assert!(!dir.path().join(".claude/skills/my-skill/SKILL.md").exists());
     }
 }
