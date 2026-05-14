@@ -86,6 +86,11 @@ pub fn handle(
             state.esc_pressed_once = false;
         }
 
+        // Short-circuit when in SelectProviderRoot modal
+        if matches!(state.list_mode, ListMode::SelectProviderRoot { .. }) {
+            return handle_select_provider_root(state, ctx, &key.code);
+        }
+
         match &key.code {
             KeyCode::Char('y') | KeyCode::Char('Y')
                 if state.list_mode == ListMode::ConfirmMcpTest =>
@@ -262,6 +267,58 @@ fn handle_detach_cancel(state: &mut AppState) -> Result<ControlFlow> {
     state.status_line = "Cancelled detach".to_string();
     state.pending_detach_vault = None;
     Ok(ControlFlow::Continue)
+}
+
+fn handle_select_provider_root(
+    state: &mut AppState,
+    ctx: &EventContext,
+    code: &KeyCode,
+) -> Result<ControlFlow> {
+    match code {
+        KeyCode::Up => {
+            if let ListMode::SelectProviderRoot { selected, .. } = &mut state.list_mode {
+                *selected = selected.saturating_sub(1);
+            }
+            Ok(ControlFlow::Continue)
+        }
+        KeyCode::Down => {
+            if let ListMode::SelectProviderRoot {
+                selected, options, ..
+            } = &mut state.list_mode
+            {
+                if *selected + 1 < options.len() {
+                    *selected += 1;
+                }
+            }
+            Ok(ControlFlow::Continue)
+        }
+        KeyCode::Enter => {
+            if let ListMode::SelectProviderRoot {
+                provider_id,
+                options,
+                selected,
+            } = &state.list_mode
+            {
+                let chosen = options[*selected].0.clone();
+                let mut config = state.active_config().clone();
+                config.provider_roots.insert(provider_id.clone(), chosen);
+                let scope = state.active_scope;
+                let _ = ctx.store.save(scope, &config);
+                state.configs.insert(scope, config);
+
+                // Now proceed with the actual provider toggle
+                state.list_mode = ListMode::Normal;
+                return toggle_provider(state, ctx);
+            }
+            Ok(ControlFlow::Continue)
+        }
+        KeyCode::Esc => {
+            state.list_mode = ListMode::Normal;
+            state.status_line = "Provider enable cancelled".to_string();
+            Ok(ControlFlow::Continue)
+        }
+        _ => Ok(ControlFlow::Continue),
+    }
 }
 
 fn handle_navigation(state: &mut AppState, code: &KeyCode) {
@@ -593,6 +650,27 @@ fn handle_space(state: &mut AppState, ctx: &EventContext) -> Result<()> {
 }
 
 fn handle_space_provider(state: &mut AppState, ctx: &EventContext) -> Result<()> {
+    if let Some(entry) = state.provider_entries.get(state.selected_index) {
+        let provider = ctx.registry.providers.iter().find(|p| p.id() == entry.id);
+        if let Some(p) = provider {
+            if !entry.active {
+                let roots = p.available_config_roots();
+                let already_selected = state.active_config().provider_roots.contains_key(&entry.id);
+                if roots.len() > 1 && !already_selected {
+                    state.list_mode = ListMode::SelectProviderRoot {
+                        provider_id: entry.id.clone(),
+                        options: roots,
+                        selected: 0,
+                    };
+                    return Ok(());
+                }
+            }
+        }
+    }
+    toggle_provider(state, ctx).map(|_| ())
+}
+
+fn toggle_provider(state: &mut AppState, ctx: &EventContext) -> Result<ControlFlow> {
     if let Some(p) = state.provider_entries.get(state.selected_index) {
         let provider_id = p.id.clone();
         let scope = state.active_scope;
@@ -662,7 +740,7 @@ fn handle_space_provider(state: &mut AppState, ctx: &EventContext) -> Result<()>
             }
         });
     }
-    Ok(())
+    Ok(ControlFlow::Continue)
 }
 
 fn handle_space_vault(state: &mut AppState, ctx: &EventContext) -> Result<()> {
