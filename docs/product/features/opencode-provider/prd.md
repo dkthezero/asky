@@ -45,11 +45,11 @@ Add [OpenCode](https://github.com/anomalyco/opencode) as a first-class deploymen
 - [x] Create `infra/provider/opencode.rs` implementing `ProviderPort`.
 - [x] **Global install path:** `~/.config/opencode/skills/<name>/SKILL.md`
 - [x] **Workspace install path:** `.opencode/skills/<name>/SKILL.md`
+- [x] **No skill config merge.** OpenCode auto-discovers skills from the `.opencode/skills/` directory. `agk` does **not** add a `skills` array to `opencode.json`.
 
 ### Config Merge Semantics
-- [x] When updating `opencode.json`, **merge** the new skill reference into existing config.
-- [x] Never replace the entire file — respect OpenCode's layered configuration philosophy.
-- [x] Support both JSON and JSONC formats (preserve comments via basic stripping).
+- [x] `opencode.json` is **never modified** for skill installation or removal.
+- [x] On skill removal, any stale `"skills"` array (from earlier agk versions) is quietly stripped so OpenCode does not throw schema errors.
 
 ### Scope Targeting
 - [x] **Global scope:** Installs skills to `~/.config/opencode/skills/` and updates `~/.config/opencode/opencode.json`.
