@@ -266,6 +266,8 @@ mod tests {
             remote_meta: None,
             requires: vec![],
             requires_optional: vec![],
+            author: None,
+            description: None,
         }
     }
 
@@ -322,6 +324,8 @@ mod tests {
             remote_meta: None,
             requires: vec![],
             requires_optional: vec![],
+            author: None,
+            description: None,
         };
         state.remote_packages = vec![remote_pkg];
         let filtered = state.filtered_packages();
@@ -341,6 +345,8 @@ mod tests {
             remote_meta: None,
             requires: vec![],
             requires_optional: vec![],
+            author: None,
+            description: None,
         };
         state.remote_packages = vec![remote_pkg];
         let filtered = state.filtered_packages();

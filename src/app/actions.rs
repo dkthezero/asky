@@ -242,6 +242,8 @@ mod tests {
             remote_meta: None,
             requires: vec![],
             requires_optional: vec![],
+            author: None,
+            description: None,
         }
     }
 
@@ -354,6 +356,8 @@ mod tests {
             remote_meta: None,
             requires: vec![],
             requires_optional: vec![],
+            author: None,
+            description: None,
         };
         update_asset(Scope::Workspace, &pkg, &store, &provider).unwrap();
 

@@ -222,6 +222,7 @@ pub fn build_vault_entries(
     active_config: &ConfigFile,
     scan: &ScanResult,
     registry: &Registry,
+    workspace_root: &std::path::Path,
 ) -> Vec<VaultEntry> {
     let mut entries = Vec::new();
     let mut vault_ids: std::collections::HashSet<String> =
@@ -234,9 +235,8 @@ pub fn build_vault_entries(
 
     for vault_id in sorted_ids {
         let enabled = global_config.vaults.contains(&vault_id);
-        let kind = global_config
-            .vault_defs
-            .get(&vault_id)
+        let section = global_config.vault_defs.get(&vault_id);
+        let kind = section
             .and_then(|s| s.vault.as_ref())
             .map(|v| match v {
                 crate::domain::config::VaultConfig::Local(_) => "local",
@@ -245,6 +245,26 @@ pub fn build_vault_entries(
             })
             .unwrap_or("local")
             .to_string();
+
+        let source_path = section
+            .and_then(|s| s.vault.as_ref())
+            .map(|v| match v {
+                crate::domain::config::VaultConfig::Local(local) => {
+                    let mut p = std::path::PathBuf::from(&local.path);
+                    if p.is_relative() {
+                        p = workspace_root.join(p);
+                    }
+                    p.to_string_lossy().into_owned()
+                }
+                crate::domain::config::VaultConfig::Github(github) => {
+                    format!(
+                        "https://github.com/{}/tree/{}/{}",
+                        github.repo, github.r#ref, github.path
+                    )
+                }
+                crate::domain::config::VaultConfig::Clawhub(_) => "https://clawhub.ai".to_string(),
+            })
+            .unwrap_or_default();
 
         let installed_skills = active_config.installed_skills(&vault_id).len();
         let installed_instructions = active_config.installed_instructions(&vault_id).len();
@@ -282,6 +302,7 @@ pub fn build_vault_entries(
             available_skills,
             installed_instructions,
             available_instructions,
+            source_path,
         });
     }
     entries
@@ -456,7 +477,13 @@ type = "clawhub"
         let global_config =
             crate::app::ports::ConfigStorePort::load(&store, crate::domain::scope::Scope::Global)
                 .unwrap();
-        let entries = build_vault_entries(&global_config, &global_config, &_scan, &registry);
+        let entries = build_vault_entries(
+            &global_config,
+            &global_config,
+            &_scan,
+            &registry,
+            std::path::Path::new("."),
+        );
         let clawhub_entry = entries.iter().find(|e| e.id == "clawhub");
         assert!(
             clawhub_entry.is_some(),

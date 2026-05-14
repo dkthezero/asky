@@ -23,11 +23,12 @@ pub fn render(
         String::new()
     };
 
-    let line1 = Line::from(vec![
-        Span::styled(scope_label, Style::default().fg(Color::Green)),
-        Span::raw("  "),
-        Span::styled(keybinds, Style::default().fg(Color::DarkGray)),
-    ]);
+    let line1 = Line::from(
+        std::iter::once(Span::styled(scope_label, Style::default().fg(Color::Green)))
+            .chain(std::iter::once(Span::raw("  ")))
+            .chain(color_keybinds(keybinds))
+            .collect::<Vec<_>>(),
+    );
 
     let row_layout = ratatui::layout::Layout::default()
         .direction(ratatui::layout::Direction::Vertical)
@@ -58,4 +59,45 @@ pub fn render(
     } else {
         frame.render_widget(Paragraph::new(status_text), row_layout[1]);
     }
+}
+
+/// Parse a keybinds string like "[↑/↓] Move  [Space] Toggle" into colored spans.
+/// Keys (inside `[]`) are shown in Cyan; everything else is DarkGray.
+fn color_keybinds(input: &str) -> Vec<Span<'_>> {
+    let mut spans = Vec::new();
+    let mut current = String::new();
+    let mut in_bracket = false;
+
+    for ch in input.chars() {
+        if ch == '[' && !in_bracket {
+            if !current.is_empty() {
+                spans.push(Span::styled(
+                    current.clone(),
+                    Style::default().fg(Color::DarkGray),
+                ));
+                current.clear();
+            }
+            in_bracket = true;
+            current.push(ch);
+        } else if ch == ']' && in_bracket {
+            current.push(ch);
+            spans.push(Span::styled(
+                current.clone(),
+                Style::default().fg(Color::Cyan),
+            ));
+            current.clear();
+            in_bracket = false;
+        } else {
+            current.push(ch);
+        }
+    }
+    if !current.is_empty() {
+        let color = if in_bracket {
+            Color::Cyan
+        } else {
+            Color::DarkGray
+        };
+        spans.push(Span::styled(current, Style::default().fg(color)));
+    }
+    spans
 }

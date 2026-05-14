@@ -107,7 +107,7 @@ pub async fn test_server(name: &str) -> Result<()> {
             }
             });
 
-            let request_str = format!("{}\n", init_request.to_string());
+            let request_str = format!("{}\n", init_request);
             tokio::io::AsyncWriteExt::write_all(&mut stdin, request_str.as_bytes()).await?;
 
             let mut buf = [0u8; 4096];

@@ -3,6 +3,7 @@ use crate::domain::asset::{AssetKind, ScannedPackage};
 use crate::domain::identity::AssetIdentity;
 use crate::domain::mcp::McpServer;
 use crate::domain::scope::Scope;
+use crate::infra::provider::common;
 use crate::infra::provider::common::copy_dir;
 use anyhow::Result;
 use std::path::PathBuf;
@@ -82,9 +83,7 @@ impl ProviderPort for AmpProvider {
 
     fn remove(&self, identity: &AssetIdentity, kind: &AssetKind, scope: Scope) -> Result<()> {
         let dest = self.asset_dir(&scope, kind, &identity.name);
-        if dest.exists() {
-            std::fs::remove_dir_all(&dest)?;
-        }
+        common::remove_dir_and_prune_empty_parents(&dest, 2)?;
         Ok(())
     }
 

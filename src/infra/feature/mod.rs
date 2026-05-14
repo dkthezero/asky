@@ -6,6 +6,7 @@ pub(crate) mod stub;
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Frontmatter {
     pub name: Option<String>,
+    pub author: Option<String>,
     pub version: Option<String>,
     pub description: Option<String>,
     pub requires: Vec<String>,
@@ -28,29 +29,26 @@ pub fn extract_frontmatter(content: &str) -> Option<Frontmatter> {
         if trimmed.is_empty() {
             continue;
         }
-        if trimmed.starts_with("version:") {
-            let v = trimmed["version:".len()..]
-                .trim()
-                .trim_matches('"')
-                .trim_matches('\'');
+        if let Some(stripped) = trimmed.strip_prefix("version:") {
+            let v = stripped.trim().trim_matches('"').trim_matches('\'');
             if !v.is_empty() {
                 fm.version = Some(v.to_string());
             }
             current_array = None;
-        } else if trimmed.starts_with("name:") {
-            let v = trimmed["name:".len()..]
-                .trim()
-                .trim_matches('"')
-                .trim_matches('\'');
+        } else if let Some(stripped) = trimmed.strip_prefix("name:") {
+            let v = stripped.trim().trim_matches('"').trim_matches('\'');
             if !v.is_empty() {
                 fm.name = Some(v.to_string());
             }
             current_array = None;
-        } else if trimmed.starts_with("description:") {
-            let v = trimmed["description:".len()..]
-                .trim()
-                .trim_matches('"')
-                .trim_matches('\'');
+        } else if let Some(stripped) = trimmed.strip_prefix("author:") {
+            let v = stripped.trim().trim_matches('"').trim_matches('\'');
+            if !v.is_empty() {
+                fm.author = Some(v.to_string());
+            }
+            current_array = None;
+        } else if let Some(stripped) = trimmed.strip_prefix("description:") {
+            let v = stripped.trim().trim_matches('"').trim_matches('\'');
             if !v.is_empty() {
                 fm.description = Some(v.to_string());
             }
@@ -59,8 +57,8 @@ pub fn extract_frontmatter(content: &str) -> Option<Frontmatter> {
             current_array = Some(&mut fm.requires_optional);
         } else if trimmed.starts_with("requires:") {
             current_array = Some(&mut fm.requires);
-        } else if trimmed.starts_with("-") {
-            let item = trimmed[1..].trim().trim_matches('"').trim_matches('\'');
+        } else if let Some(stripped) = trimmed.strip_prefix('-') {
+            let item = stripped.trim().trim_matches('"').trim_matches('\'');
             if !item.is_empty() {
                 if let Some(arr) = current_array.as_deref_mut() {
                     arr.push(item.to_string());

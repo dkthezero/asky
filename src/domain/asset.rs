@@ -30,6 +30,9 @@ pub struct ScannedPackage {
     pub requires: Vec<String>,
     /// Optional dependencies that don't fail if missing
     pub requires_optional: Vec<String>,
+    /// Parsed frontmatter metadata for display in detail panels
+    pub author: Option<String>,
+    pub description: Option<String>,
 }
 
 /// Display-only struct for the Vaults tab.
@@ -42,6 +45,8 @@ pub struct VaultEntry {
     pub available_skills: usize,
     pub installed_instructions: usize,
     pub available_instructions: usize,
+    /// Source path or URL for this vault (PR #5)
+    pub source_path: String,
 }
 
 impl VaultEntry {
@@ -89,6 +94,7 @@ mod tests {
             available_skills: 48,
             installed_instructions: 8,
             available_instructions: 12,
+            source_path: "https://github.com/org/community-agent-vault".to_string(),
         };
         assert_eq!(entry.id, "community");
         assert_eq!(entry.counts_label(), "30/48s  8/12i");
@@ -115,6 +121,8 @@ mod tests {
             remote_meta: None,
             requires: vec![],
             requires_optional: vec![],
+            author: None,
+            description: None,
         };
         assert_eq!(pkg.identity.name, "my-skill");
         assert_eq!(pkg.vault_id, "workspace");
@@ -131,6 +139,8 @@ mod tests {
             remote_meta: None,
             requires: vec![],
             requires_optional: vec![],
+            author: None,
+            description: None,
         };
         assert!(!pkg.is_remote);
     }
@@ -146,6 +156,8 @@ mod tests {
             remote_meta: None,
             requires: vec![],
             requires_optional: vec![],
+            author: None,
+            description: None,
         };
         assert!(pkg.is_remote);
     }
