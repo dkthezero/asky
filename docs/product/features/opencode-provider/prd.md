@@ -52,8 +52,8 @@ Add [OpenCode](https://github.com/anomalyco/opencode) as a first-class deploymen
 - [x] On skill removal, any stale `"skills"` array (from earlier agk versions) is quietly stripped so OpenCode does not throw schema errors.
 
 ### Scope Targeting
-- [x] **Global scope:** Installs skills to `~/.config/opencode/skills/` and updates `~/.config/opencode/opencode.json`.
-- [x] **Workspace scope:** Installs skills to `.opencode/skills/` and updates `opencode.json` in the project root.
+- [x] **Global scope:** Installs skills to `~/.config/opencode/skills/`. `opencode.json` is modified only for MCP configuration.
+- [x] **Workspace scope:** Installs skills to `.opencode/skills/`. `opencode.json` is modified only for MCP configuration (and to strip stale `skills` keys during self-heal).
 
 ### MCP Support
 - [x] `McpProvider` trait implemented (`write_mcp_server`, `remove_mcp_server`).

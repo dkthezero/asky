@@ -59,16 +59,14 @@ impl ProviderPort for OpenCodeProvider {
 
     fn install_path_for(
         &self,
-        _identity: &AssetIdentity,
+        identity: &AssetIdentity,
         kind: &AssetKind,
         scope: Scope,
     ) -> Option<PathBuf> {
         if *kind == AssetKind::McpServer {
             return None;
         }
-        // OpenCode auto-discovers skills from .opencode/skills/<name>/
-        // No JSON config entry is needed (or valid).
-        Some(self.provider_root(&scope).join("skills"))
+        Some(self.asset_dir(&scope, kind, &identity.name))
     }
 
     fn install(&self, pkg: &ScannedPackage, scope: Scope) -> Result<()> {
@@ -77,6 +75,9 @@ impl ProviderPort for OpenCodeProvider {
 
         // OpenCode does NOT accept a "skills" key in opencode.json.
         // Skills are auto-discovered from the .opencode/skills directory.
+        // Self-heal: strip any stale "skills" array left by older agk versions
+        // so users upgrading from the buggy build get a working config.
+        self.drop_stale_skills_array(&scope)?;
         Ok(())
     }
 
@@ -401,7 +402,7 @@ mod tests {
     }
 
     #[test]
-    fn install_does_not_touch_existing_opencode_json() {
+    fn install_heals_stale_skills_key() {
         let dir = tempfile::tempdir().unwrap();
         let config_path = dir.path().join("opencode.json");
         std::fs::write(
@@ -418,7 +419,7 @@ mod tests {
 
         let content = std::fs::read_to_string(config_path).unwrap();
         assert!(content.contains("customKey"));
-        assert!(content.contains("skills"));
+        assert!(!content.contains("skills"));
         assert!(!content.contains(".opencode/skills/my-skill"));
     }
 }
