@@ -264,13 +264,17 @@ mod tests {
     fn claude_install_uses_agents_when_configured() {
         let dir = tempfile::tempdir().unwrap();
         let mut config = crate::domain::config::ConfigFile::default();
-        config.provider_roots.insert("claude-code".to_string(), ".agents".to_string());
+        config
+            .provider_roots
+            .insert("claude-code".to_string(), ".agents".to_string());
 
         let src_dir = dir.path().join("source");
         std::fs::create_dir(&src_dir).unwrap();
         let pkg = make_pkg(&src_dir, "my-skill", AssetKind::Skill, "SKILL.md");
         let provider = ClaudeCodeProvider::new(dir.path().to_path_buf());
-        provider.install(&pkg, Scope::Workspace, Some(&config)).unwrap();
+        provider
+            .install(&pkg, Scope::Workspace, Some(&config))
+            .unwrap();
 
         assert!(dir.path().join(".agents/skills/my-skill/SKILL.md").exists());
         assert!(!dir.path().join(".claude/skills/my-skill/SKILL.md").exists());
