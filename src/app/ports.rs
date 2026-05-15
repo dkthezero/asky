@@ -45,8 +45,19 @@ pub trait ConfigStorePort: Send + Sync {
 pub trait ProviderPort: Send + Sync {
     fn id(&self) -> &str;
     fn name(&self) -> &str;
-    fn install(&self, pkg: &ScannedPackage, scope: Scope) -> Result<()>;
-    fn remove(&self, identity: &AssetIdentity, kind: &AssetKind, scope: Scope) -> Result<()>;
+    fn install(
+        &self,
+        pkg: &ScannedPackage,
+        scope: Scope,
+        config: Option<&ConfigFile>,
+    ) -> Result<()>;
+    fn remove(
+        &self,
+        identity: &AssetIdentity,
+        kind: &AssetKind,
+        scope: Scope,
+        config: Option<&ConfigFile>,
+    ) -> Result<()>;
 
     /// Return the expected on-disk install path for the given asset, if known.
     /// Defaults to `None` for providers where the path convention is not exposed.
@@ -57,6 +68,13 @@ pub trait ProviderPort: Send + Sync {
         _scope: Scope,
     ) -> Option<PathBuf> {
         None
+    }
+
+    /// Return a list of alternative config root folder names this provider
+    /// supports. Each entry is (folder_name, description).
+    /// Default empty vec means the provider has a single hardcoded root.
+    fn available_config_roots(&self) -> Vec<(String, String)> {
+        vec![]
     }
 }
 
@@ -106,5 +124,33 @@ mod tests {
     fn feature_set_port_kind_name() {
         let f = TestFeatureSet;
         assert_eq!(f.kind_name(), "test");
+    }
+
+    struct DummyProvider;
+    impl ProviderPort for DummyProvider {
+        fn id(&self) -> &str {
+            "dummy"
+        }
+        fn name(&self) -> &str {
+            "Dummy"
+        }
+        fn install(&self, _: &ScannedPackage, _: Scope, _: Option<&ConfigFile>) -> Result<()> {
+            Ok(())
+        }
+        fn remove(
+            &self,
+            _: &AssetIdentity,
+            _: &AssetKind,
+            _: Scope,
+            _: Option<&ConfigFile>,
+        ) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn provider_port_default_available_roots_empty() {
+        let p = DummyProvider;
+        assert!(p.available_config_roots().is_empty());
     }
 }
