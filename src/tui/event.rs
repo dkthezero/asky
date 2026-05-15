@@ -91,7 +91,23 @@ pub fn handle(
             return handle_select_provider_root(state, ctx, &key.code);
         }
 
+        // Confirmation modals share Enter alias
+        let in_confirm = matches!(
+            state.list_mode,
+            ListMode::ConfirmMcpTest
+                | ListMode::ConfirmClawHubInstall
+                | ListMode::ConfirmDetachVault
+        );
+
         match &key.code {
+            KeyCode::Enter if in_confirm => match state.list_mode {
+                ListMode::ConfirmMcpTest => return handle_mcp_register_confirm(state, ctx),
+                ListMode::ConfirmClawHubInstall => {
+                    return handle_clawhub_install_confirm(state, ctx)
+                }
+                ListMode::ConfirmDetachVault => return handle_detach_confirm(state, ctx),
+                _ => {}
+            },
             KeyCode::Char('y') | KeyCode::Char('Y')
                 if state.list_mode == ListMode::ConfirmMcpTest =>
             {
@@ -151,7 +167,11 @@ pub fn handle(
                 return handle_esc(state);
             }
             KeyCode::Backspace => {
-                handle_backspace(state);
+                if state.is_attach_vault_mode() || state.is_register_mcp_mode() {
+                    state.prompt_buffer.pop();
+                } else {
+                    handle_backspace(state);
+                }
             }
             KeyCode::Char(' ')
                 if state.list_mode == ListMode::Normal
@@ -355,11 +375,9 @@ fn handle_attach_vault_input(
     match code {
         KeyCode::Char(c) => {
             state.prompt_buffer.push(*c);
-            update_attach_status(state);
         }
-        KeyCode::Backspace => {
+        KeyCode::Backspace if state.is_attach_vault_mode() || state.is_register_mcp_mode() => {
             state.prompt_buffer.pop();
-            update_attach_status(state);
         }
         KeyCode::Enter => match state.list_mode {
             ListMode::AttachVault => {
@@ -373,7 +391,6 @@ fn handle_attach_vault_input(
                     state.pending_vault_url = input;
                     state.list_mode = ListMode::AttachVaultBranch;
                     state.prompt_buffer = "main".to_string();
-                    update_attach_status(state);
                 } else {
                     state.list_mode = ListMode::Normal;
                     let id = std::path::Path::new(&input)
@@ -396,7 +413,6 @@ fn handle_attach_vault_input(
                 };
                 state.list_mode = ListMode::AttachVaultPath;
                 state.prompt_buffer = "skills/".to_string();
-                update_attach_status(state);
             }
             ListMode::AttachVaultPath => {
                 let subfolder = std::mem::take(&mut state.prompt_buffer);
@@ -436,11 +452,9 @@ fn handle_register_mcp_input(
     match code {
         KeyCode::Char(c) => {
             state.prompt_buffer.push(*c);
-            update_register_mcp_status(state);
         }
         KeyCode::Backspace => {
             state.prompt_buffer.pop();
-            update_register_mcp_status(state);
         }
         KeyCode::Enter => match state.list_mode {
             ListMode::RegisterMcpStepName => {
@@ -451,7 +465,7 @@ fn handle_register_mcp_input(
                     state.status_line = "Cancelled — name required".to_string();
                 } else {
                     state.list_mode = ListMode::RegisterMcpStepCommand;
-                    state.status_line = "Command to run (e.g. npx, python):".to_string();
+                    state.status_line.clear();
                 }
             }
             ListMode::RegisterMcpStepCommand => {
@@ -462,14 +476,14 @@ fn handle_register_mcp_input(
                         "Command cannot be empty. Enter a command (e.g. npx, python):".to_string();
                 } else {
                     state.list_mode = ListMode::RegisterMcpStepArgs;
-                    state.status_line = "Arguments (space-separated, optional):".to_string();
+                    state.status_line.clear();
                 }
             }
             ListMode::RegisterMcpStepArgs => {
                 state.pending_mcp_args = std::mem::take(&mut state.prompt_buffer);
                 state.list_mode = ListMode::RegisterMcpStepTransport;
                 state.prompt_buffer = "stdio".to_string();
-                state.status_line = "Transport (stdio/sse), default stdio:".to_string();
+                state.status_line.clear();
             }
             ListMode::RegisterMcpStepTransport => {
                 let transport = std::mem::take(&mut state.prompt_buffer).trim().to_string();
@@ -479,43 +493,19 @@ fn handle_register_mcp_input(
                     transport
                 };
                 state.list_mode = ListMode::RegisterMcpStepDescription;
-                state.status_line = "Description (optional):".to_string();
+                state.status_line.clear();
             }
             ListMode::RegisterMcpStepDescription => {
                 state.pending_mcp_description = std::mem::take(&mut state.prompt_buffer);
                 // Security confirmation before registering
                 state.list_mode = ListMode::ConfirmMcpTest;
-                state.status_line = format!(
-                    "WARNING: This will execute '{} {}' on your machine. Register? [y/N]",
-                    state.pending_mcp_command, state.pending_mcp_args
-                );
+                state.status_line.clear();
             }
             _ => {}
         },
         _ => {}
     }
     Ok(())
-}
-
-fn update_register_mcp_status(state: &mut AppState) {
-    match state.list_mode {
-        ListMode::RegisterMcpStepName => {
-            state.status_line = format!("Name: {}", state.prompt_buffer);
-        }
-        ListMode::RegisterMcpStepCommand => {
-            state.status_line = format!("Command: {}", state.prompt_buffer);
-        }
-        ListMode::RegisterMcpStepArgs => {
-            state.status_line = format!("Args: {}", state.prompt_buffer);
-        }
-        ListMode::RegisterMcpStepTransport => {
-            state.status_line = format!("Transport: {}", state.prompt_buffer);
-        }
-        ListMode::RegisterMcpStepDescription => {
-            state.status_line = format!("Description: {}", state.prompt_buffer);
-        }
-        _ => {}
-    }
 }
 
 fn handle_mcp_register_confirm(state: &mut AppState, ctx: &EventContext) -> Result<ControlFlow> {
@@ -614,10 +604,8 @@ fn handle_backspace(state: &mut AppState) {
     let active_kind = state.tab_kinds.get(state.active_tab).copied();
     if state.is_attach_vault_mode() {
         state.prompt_buffer.pop();
-        update_attach_status(state);
     } else if state.is_register_mcp_mode() {
         state.prompt_buffer.pop();
-        update_register_mcp_status(state);
     } else if active_kind != Some(crate::tui::app::TabKind::Vault) {
         state.search_query.pop();
         if state.search_query.is_empty() {
@@ -761,10 +749,7 @@ fn handle_space_vault(state: &mut AppState, ctx: &EventContext) -> Result<()> {
         if is_attached {
             state.list_mode = ListMode::ConfirmDetachVault;
             state.pending_detach_vault = Some(vault_id.clone());
-            state.status_line = format!(
-                "Detach vault '{}'? This will hide all its uninstalled skills. [y/N]",
-                vault_id
-            );
+            state.status_line.clear();
         } else if vault.kind == "clawhub" {
             if crate::infra::vault::clawhub::is_cli_available() {
                 // Activate directly
@@ -790,8 +775,7 @@ fn handle_space_vault(state: &mut AppState, ctx: &EventContext) -> Result<()> {
                 });
             } else if crate::infra::vault::clawhub::is_homebrew_available() {
                 state.list_mode = ListMode::ConfirmClawHubInstall;
-                state.status_line =
-                    "ClawHub CLI not found. Install via Homebrew? [y/N]".to_string();
+                state.status_line.clear();
             } else {
                 state.status_line =
                     "ClawHub CLI not found. Install manually from https://clawhub.ai".to_string();
@@ -1304,9 +1288,7 @@ pub fn apply_space_no_provider(state: &mut AppState, providers_tab_idx: usize) {
 pub fn apply_enter_attach_vault(state: &mut AppState) {
     state.list_mode = ListMode::AttachVault;
     state.prompt_buffer = String::new();
-    state.status_line =
-        "Attach vault — enter local path or Github URL (Enter to confirm, Esc to cancel):"
-            .to_string();
+    state.status_line.clear();
 }
 
 pub fn apply_enter_register_mcp(state: &mut AppState) {
@@ -1317,7 +1299,7 @@ pub fn apply_enter_register_mcp(state: &mut AppState) {
     state.pending_mcp_args.clear();
     state.pending_mcp_transport = "stdio".to_string();
     state.pending_mcp_description.clear();
-    state.status_line = "Register MCP — Enter name (Enter to confirm, Esc to cancel):".to_string();
+    state.status_line.clear();
 }
 
 fn parse_github_url(url: &str) -> Option<(String, String)> {
@@ -1383,21 +1365,6 @@ fn active_providers<'a>(
         .filter(|p| config.providers.contains(&p.id().to_string()))
         .map(|p| p.as_ref())
         .collect()
-}
-
-fn update_attach_status(state: &mut AppState) {
-    match state.list_mode {
-        ListMode::AttachVault => {
-            state.status_line = format!("Path/URL: {}", state.prompt_buffer);
-        }
-        ListMode::AttachVaultBranch => {
-            state.status_line = format!("Branch (default: main): {}", state.prompt_buffer);
-        }
-        ListMode::AttachVaultPath => {
-            state.status_line = format!("Subfolder (default: skills/): {}", state.prompt_buffer);
-        }
-        _ => {}
-    }
 }
 
 fn execute_attach_vault(
