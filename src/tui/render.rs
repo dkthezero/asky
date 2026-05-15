@@ -1,6 +1,6 @@
 use crate::tui::app::{AppState, ListMode};
 use crate::tui::layout;
-use crate::tui::widgets::{analytics, detail, list, mcp, status, tabs};
+use crate::tui::widgets::{analytics, detail, list, mcp, modal, status, tabs};
 use ratatui::{
     style::{Color, Modifier, Style},
     text::Line,
@@ -125,6 +125,13 @@ pub fn draw(frame: &mut Frame, state: &AppState) {
     }
     let keybinds = if matches!(state.list_mode, ListMode::SelectProviderRoot { .. }) {
         "[↑/↓] Move  [Enter] Confirm  [Esc] Cancel"
+    } else if state.is_attach_vault_mode() || state.is_register_mcp_mode() {
+        "[Enter] Confirm  [Esc] Cancel"
+    } else if matches!(
+        state.list_mode,
+        ListMode::ConfirmMcpTest | ListMode::ConfirmClawHubInstall | ListMode::ConfirmDetachVault
+    ) {
+        "[y] Yes  [n] No  [Enter] Confirm  [Esc] Cancel"
     } else {
         match active_kind {
             TabKind::Asset => {
@@ -155,19 +162,101 @@ pub fn draw(frame: &mut Frame, state: &AppState) {
         state.progress_summary().as_deref(),
     );
 
-    if let crate::tui::app::ListMode::SelectProviderRoot {
-        provider_id,
-        options,
-        selected,
-    } = &state.list_mode
-    {
-        let name = state
-            .provider_entries
-            .iter()
-            .find(|p| p.id == *provider_id)
-            .map(|p| p.name.as_str())
-            .unwrap_or(provider_id);
-        let title = format!("Select config folder for {}", name);
-        crate::tui::widgets::modal::render_select_modal(frame, &title, options, *selected);
+    match &state.list_mode {
+        ListMode::SelectProviderRoot {
+            provider_id,
+            options,
+            selected,
+        } => {
+            let name = state
+                .provider_entries
+                .iter()
+                .find(|p| p.id == *provider_id)
+                .map(|p| p.name.as_str())
+                .unwrap_or(provider_id);
+            let title = format!("Select config folder for {}", name);
+            modal::render_select_modal(frame, &title, options, *selected);
+        }
+        ListMode::AttachVault => {
+            modal::render_input_modal(
+                frame,
+                "Attach Vault",
+                "Enter local path or GitHub URL:",
+                &state.prompt_buffer,
+            );
+        }
+        ListMode::AttachVaultBranch => {
+            modal::render_input_modal(
+                frame,
+                "Attach Vault",
+                "Branch (default: main):",
+                &state.prompt_buffer,
+            );
+        }
+        ListMode::AttachVaultPath => {
+            modal::render_input_modal(
+                frame,
+                "Attach Vault",
+                "Subfolder (default: skills/):",
+                &state.prompt_buffer,
+            );
+        }
+        ListMode::RegisterMcpStepName => {
+            modal::render_input_modal(frame, "Register MCP Server", "Name:", &state.prompt_buffer);
+        }
+        ListMode::RegisterMcpStepCommand => {
+            modal::render_input_modal(
+                frame,
+                "Register MCP Server",
+                "Command to run (e.g. npx, python):",
+                &state.prompt_buffer,
+            );
+        }
+        ListMode::RegisterMcpStepArgs => {
+            modal::render_input_modal(
+                frame,
+                "Register MCP Server",
+                "Arguments (space-separated, optional):",
+                &state.prompt_buffer,
+            );
+        }
+        ListMode::RegisterMcpStepTransport => {
+            modal::render_input_modal(
+                frame,
+                "Register MCP Server",
+                "Transport (stdio/sse), default stdio:",
+                &state.prompt_buffer,
+            );
+        }
+        ListMode::RegisterMcpStepDescription => {
+            modal::render_input_modal(
+                frame,
+                "Register MCP Server",
+                "Description (optional):",
+                &state.prompt_buffer,
+            );
+        }
+        ListMode::ConfirmMcpTest => {
+            let msg = format!(
+                "WARNING: This will execute '{} {}' on your machine.\nProceed?",
+                state.pending_mcp_command, state.pending_mcp_args
+            );
+            modal::render_confirm_modal(frame, "Confirm MCP Registration", &msg);
+        }
+        ListMode::ConfirmClawHubInstall => {
+            modal::render_confirm_modal(
+                frame,
+                "Install ClawHub CLI",
+                "ClawHub CLI not found. Install via Homebrew?",
+            );
+        }
+        ListMode::ConfirmDetachVault => {
+            let msg = format!(
+                "Detach vault '{}'?\nThis will hide all its uninstalled skills.",
+                state.pending_detach_vault.as_deref().unwrap_or("")
+            );
+            modal::render_confirm_modal(frame, "Detach Vault", &msg);
+        }
+        _ => {}
     }
 }
