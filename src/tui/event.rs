@@ -303,12 +303,17 @@ fn handle_select_provider_root(
                 let mut config = state.active_config().clone();
                 config.provider_roots.insert(provider_id.clone(), chosen);
                 let scope = state.active_scope;
-                let _ = ctx.store.save(scope, &config);
-                state.configs.insert(scope, config);
-
-                // Now proceed with the actual provider toggle
-                state.list_mode = ListMode::Normal;
-                return toggle_provider(state, ctx);
+                match ctx.store.save(scope, &config) {
+                    Ok(()) => {
+                        state.configs.insert(scope, config);
+                        state.list_mode = ListMode::Normal;
+                        return toggle_provider(state, ctx);
+                    }
+                    Err(e) => {
+                        state.status_line = format!("Failed to save config: {}", e);
+                        return Ok(ControlFlow::Continue);
+                    }
+                }
             }
             Ok(ControlFlow::Continue)
         }
@@ -653,9 +658,12 @@ fn handle_space_provider(state: &mut AppState, ctx: &EventContext) -> Result<()>
     if let Some(entry) = state.provider_entries.get(state.selected_index) {
         let provider = ctx.registry.providers.iter().find(|p| p.id() == entry.id);
         if let Some(p) = provider {
-            if !entry.active {
+            if !entry.active && state.active_scope == crate::domain::scope::Scope::Workspace {
                 let roots = p.available_config_roots();
-                let already_selected = state.active_config().provider_roots.contains_key(&entry.id);
+                let already_selected = state
+                    .active_config()
+                    .provider_roots
+                    .contains_key(&entry.id);
                 if roots.len() > 1 && !already_selected {
                     state.list_mode = ListMode::SelectProviderRoot {
                         provider_id: entry.id.clone(),

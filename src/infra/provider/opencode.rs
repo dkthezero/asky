@@ -22,16 +22,19 @@ impl OpenCodeProvider {
         scope: &Scope,
         config: Option<&crate::domain::config::ConfigFile>,
     ) -> PathBuf {
-        let folder = config
-            .and_then(|c| c.provider_roots.get("opencode"))
-            .map(|s| s.as_str())
-            .unwrap_or(".opencode");
+        // provider_roots is workspace-only; global always uses hardcoded defaults
         match scope {
             Scope::Global => dirs_next::home_dir()
                 .unwrap_or_else(|| PathBuf::from("."))
                 .join(".config")
-                .join(folder.trim_start_matches('.')),
-            Scope::Workspace => self.workspace_root.join(folder),
+                .join("opencode"),
+            Scope::Workspace => {
+                let folder = config
+                    .and_then(|c| c.provider_roots.get(self.id()))
+                    .map(|s| s.as_str())
+                    .unwrap_or(".opencode");
+                self.workspace_root.join(folder)
+            }
         }
     }
 

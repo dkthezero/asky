@@ -22,16 +22,18 @@ impl GeminiProvider {
         scope: &Scope,
         config: Option<&crate::domain::config::ConfigFile>,
     ) -> PathBuf {
-        let folder = config
-            .and_then(|c| c.provider_roots.get("gemini"))
-            .map(|s| s.as_str())
-            .unwrap_or(".gemini");
+        // provider_roots is workspace-only; global always uses the hardcoded default
         match scope {
             Scope::Global => dirs_next::home_dir()
                 .unwrap_or_else(|| PathBuf::from("."))
-                .join(".config")
-                .join(folder.trim_start_matches('.')),
-            Scope::Workspace => self.workspace_root.join(folder),
+                .join(".gemini"),
+            Scope::Workspace => {
+                let folder = config
+                    .and_then(|c| c.provider_roots.get(self.id()))
+                    .map(|s| s.as_str())
+                    .unwrap_or(".gemini");
+                self.workspace_root.join(folder)
+            }
         }
     }
 
@@ -190,7 +192,7 @@ mod tests {
         let mut config = ConfigFile::default();
         config
             .provider_roots
-            .insert("gemini".to_string(), ".ai".to_string());
+            .insert("gemini-cli".to_string(), ".ai".to_string());
         let root = provider.provider_root(&Scope::Workspace, Some(&config));
         assert_eq!(root, dir.path().join(".ai"));
     }

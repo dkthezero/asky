@@ -22,16 +22,18 @@ impl ClaudeCodeProvider {
         scope: &Scope,
         config: Option<&crate::domain::config::ConfigFile>,
     ) -> PathBuf {
-        let folder = config
-            .and_then(|c| c.provider_roots.get(self.id()))
-            .map(|s| s.as_str())
-            .unwrap_or(".claude");
+        // provider_roots is workspace-only; global always uses the hardcoded default
         match scope {
             Scope::Global => dirs_next::home_dir()
                 .unwrap_or_else(|| PathBuf::from("."))
-                .join(".config")
-                .join(folder.trim_start_matches('.')),
-            Scope::Workspace => self.workspace_root.join(folder),
+                .join(".claude"),
+            Scope::Workspace => {
+                let folder = config
+                    .and_then(|c| c.provider_roots.get(self.id()))
+                    .map(|s| s.as_str())
+                    .unwrap_or(".claude");
+                self.workspace_root.join(folder)
+            }
         }
     }
 

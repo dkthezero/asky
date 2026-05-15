@@ -10,8 +10,19 @@ Approach B: extended trait method + workspace config.
 pub trait ProviderPort: Send + Sync {
     fn id(&self) -> &str;
     fn name(&self) -> &str;
-    fn install(&self, pkg: &ScannedPackage, scope: Scope) -> Result<()>;
-    fn remove(&self, identity: &AssetIdentity, kind: &AssetKind, scope: Scope) -> Result<()>;
+    fn install(
+        &self,
+        pkg: &ScannedPackage,
+        scope: Scope,
+        config: Option<&ConfigFile>,
+    ) -> Result<()>;
+    fn remove(
+        &self,
+        identity: &AssetIdentity,
+        kind: &AssetKind,
+        scope: Scope,
+        config: Option<&ConfigFile>,
+    ) -> Result<()>;
     fn install_path_for(&self, ...) -> Option<PathBuf> {
         None
     }
