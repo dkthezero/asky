@@ -660,10 +660,7 @@ fn handle_space_provider(state: &mut AppState, ctx: &EventContext) -> Result<()>
         if let Some(p) = provider {
             if !entry.active && state.active_scope == crate::domain::scope::Scope::Workspace {
                 let roots = p.available_config_roots();
-                let already_selected = state
-                    .active_config()
-                    .provider_roots
-                    .contains_key(&entry.id);
+                let already_selected = state.active_config().provider_roots.contains_key(&entry.id);
                 if roots.len() > 1 && !already_selected {
                     state.list_mode = ListMode::SelectProviderRoot {
                         provider_id: entry.id.clone(),
