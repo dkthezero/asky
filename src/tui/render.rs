@@ -1,5 +1,6 @@
+use crate::tui::app::{AppState, ListMode};
+use crate::tui::layout;
 use crate::tui::widgets::{analytics, detail, list, mcp, status, tabs};
-use crate::tui::{app::AppState, layout};
 use ratatui::{
     style::{Color, Modifier, Style},
     text::Line,
@@ -122,21 +123,25 @@ pub fn draw(frame: &mut Frame, state: &AppState) {
             );
         }
     }
-    let keybinds = match active_kind {
-        TabKind::Asset => {
-            "[↑/↓] Move  [Space] Toggle  [Enter] Update  [F5] Update All  [F4] Refresh  [type] Search  [Esc]x2 Quit"
-        }
-        TabKind::Provider => {
-            "[↑/↓] Move  [Space] Toggle  [Enter] Update  [F4] Refresh  [Esc]x2 Quit"
-        }
-        TabKind::Mcp => {
-            "[↑/↓] Move  [F2] Add MCP  [Space] Enable  [Enter] Test  [Esc]x2 Quit"
-        }
-        TabKind::Analytics => {
-            "[↑/↓] Move  [F5] Refresh  [Esc]x2 Quit"
-        }
-        TabKind::Vault => {
-            "[↑/↓] Move  [F2] Attach New  [Space] Toggle  [F4] Refresh  [Esc]x2 Quit"
+    let keybinds = if matches!(state.list_mode, ListMode::SelectProviderRoot { .. }) {
+        "[↑/↓] Move  [Enter] Confirm  [Esc] Cancel"
+    } else {
+        match active_kind {
+            TabKind::Asset => {
+                "[↑/↓] Move  [Space] Toggle  [Enter] Update  [F5] Update All  [F4] Refresh  [type] Search  [Esc]x2 Quit"
+            }
+            TabKind::Provider => {
+                "[↑/↓] Move  [Space] Toggle  [Enter] Update  [F4] Refresh  [Esc]x2 Quit"
+            }
+            TabKind::Mcp => {
+                "[↑/↓] Move  [F2] Add MCP  [Space] Enable  [Enter] Test  [Esc]x2 Quit"
+            }
+            TabKind::Analytics => {
+                "[↑/↓] Move  [F5] Refresh  [Esc]x2 Quit"
+            }
+            TabKind::Vault => {
+                "[↑/↓] Move  [F2] Attach New  [Space] Toggle  [F4] Refresh  [Esc]x2 Quit"
+            }
         }
     };
 
@@ -149,4 +154,20 @@ pub fn draw(frame: &mut Frame, state: &AppState) {
         state.scope_label(),
         state.progress_summary().as_deref(),
     );
+
+    if let crate::tui::app::ListMode::SelectProviderRoot {
+        provider_id,
+        options,
+        selected,
+    } = &state.list_mode
+    {
+        let name = state
+            .provider_entries
+            .iter()
+            .find(|p| p.id == *provider_id)
+            .map(|p| p.name.as_str())
+            .unwrap_or(provider_id);
+        let title = format!("Select config folder for {}", name);
+        crate::tui::widgets::modal::render_select_modal(frame, &title, options, *selected);
+    }
 }

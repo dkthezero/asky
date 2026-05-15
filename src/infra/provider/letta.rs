@@ -16,7 +16,11 @@ impl LettaProvider {
         Self { workspace_root }
     }
 
-    fn provider_root(&self, scope: &Scope) -> PathBuf {
+    fn provider_root(
+        &self,
+        scope: &Scope,
+        _config: Option<&crate::domain::config::ConfigFile>,
+    ) -> PathBuf {
         match scope {
             Scope::Global => dirs_next::home_dir()
                 .unwrap_or_else(|| PathBuf::from("."))
@@ -25,8 +29,14 @@ impl LettaProvider {
         }
     }
 
-    fn asset_dir(&self, scope: &Scope, kind: &AssetKind, name: &str) -> PathBuf {
-        let root = self.provider_root(scope);
+    fn asset_dir(
+        &self,
+        scope: &Scope,
+        kind: &AssetKind,
+        name: &str,
+        config: Option<&crate::domain::config::ConfigFile>,
+    ) -> PathBuf {
+        let root = self.provider_root(scope, config);
         match kind {
             AssetKind::Skill => root.join("skills").join(name),
             AssetKind::Instruction => root.join("instructions").join(name),
@@ -44,13 +54,24 @@ impl ProviderPort for LettaProvider {
         "Letta"
     }
 
-    fn install(&self, pkg: &ScannedPackage, scope: Scope) -> Result<()> {
-        let dest = self.asset_dir(&scope, &pkg.kind, &pkg.identity.name);
+    fn install(
+        &self,
+        pkg: &ScannedPackage,
+        scope: Scope,
+        config: Option<&crate::domain::config::ConfigFile>,
+    ) -> Result<()> {
+        let dest = self.asset_dir(&scope, &pkg.kind, &pkg.identity.name, config);
         copy_dir(&pkg.path, &dest)
     }
 
-    fn remove(&self, identity: &AssetIdentity, kind: &AssetKind, scope: Scope) -> Result<()> {
-        let dest = self.asset_dir(&scope, kind, &identity.name);
+    fn remove(
+        &self,
+        identity: &AssetIdentity,
+        kind: &AssetKind,
+        scope: Scope,
+        config: Option<&crate::domain::config::ConfigFile>,
+    ) -> Result<()> {
+        let dest = self.asset_dir(&scope, kind, &identity.name, config);
         common::remove_dir_and_prune_empty_parents(&dest, 2)?;
         Ok(())
     }

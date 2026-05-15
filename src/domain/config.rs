@@ -66,6 +66,8 @@ pub struct ConfigFile {
     /// Vault definitions keyed by vault id, stored as `[<id>.vault]`
     #[serde(default, flatten)]
     pub vault_defs: HashMap<String, VaultSection>,
+    #[serde(default)]
+    pub provider_roots: HashMap<String, String>,
 }
 
 impl Default for ConfigFile {
@@ -75,6 +77,7 @@ impl Default for ConfigFile {
             vaults: Vec::new(),
             providers: Vec::new(),
             vault_defs: HashMap::new(),
+            provider_roots: HashMap::new(),
         }
     }
 }
@@ -257,5 +260,23 @@ type = "clawhub"
         );
         assert!(config.is_skill_installed("workspace", "my-skill"));
         assert!(!config.is_skill_installed("workspace", "other-skill"));
+    }
+
+    #[test]
+    fn provider_roots_toml_round_trip() {
+        let mut config = ConfigFile::default();
+        config
+            .provider_roots
+            .insert("opencode".to_string(), ".agents".to_string());
+        let toml_str = toml::to_string(&config).unwrap();
+        assert!(toml_str.contains("provider_roots"));
+        assert!(toml_str.contains("opencode"));
+        assert!(toml_str.contains(".agents"));
+
+        let loaded: ConfigFile = toml::from_str(&toml_str).unwrap();
+        assert_eq!(
+            loaded.provider_roots.get("opencode"),
+            Some(&".agents".to_string())
+        );
     }
 }

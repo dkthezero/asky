@@ -17,17 +17,34 @@ impl GeminiProvider {
         Self { workspace_root }
     }
 
-    fn provider_root(&self, scope: &Scope) -> PathBuf {
+    fn provider_root(
+        &self,
+        scope: &Scope,
+        config: Option<&crate::domain::config::ConfigFile>,
+    ) -> PathBuf {
+        // provider_roots is workspace-only; global always uses the hardcoded default
         match scope {
             Scope::Global => dirs_next::home_dir()
                 .unwrap_or_else(|| PathBuf::from("."))
                 .join(".gemini"),
-            Scope::Workspace => self.workspace_root.join(".gemini"),
+            Scope::Workspace => {
+                let folder = config
+                    .and_then(|c| c.provider_roots.get(self.id()))
+                    .map(|s| s.as_str())
+                    .unwrap_or(".gemini");
+                self.workspace_root.join(folder)
+            }
         }
     }
 
-    fn asset_dir(&self, scope: &Scope, kind: &AssetKind, name: &str) -> PathBuf {
-        let root = self.provider_root(scope);
+    fn asset_dir(
+        &self,
+        scope: &Scope,
+        kind: &AssetKind,
+        name: &str,
+        config: Option<&crate::domain::config::ConfigFile>,
+    ) -> PathBuf {
+        let root = self.provider_root(scope, config);
         match kind {
             AssetKind::Skill => root.join("skills").join(name),
             AssetKind::Instruction => root.join("instructions").join(name),
@@ -36,7 +53,7 @@ impl GeminiProvider {
     }
 
     fn mcp_json_path(&self, scope: &Scope) -> PathBuf {
-        self.provider_root(scope).join("settings.json")
+        self.provider_root(scope, None).join("settings.json")
     }
 
     fn load_mcp_config(&self, scope: &Scope) -> Result<serde_json::Value> {
@@ -69,13 +86,24 @@ impl ProviderPort for GeminiProvider {
         "Gemini CLI"
     }
 
-    fn install(&self, pkg: &ScannedPackage, scope: Scope) -> Result<()> {
-        let dest = self.asset_dir(&scope, &pkg.kind, &pkg.identity.name);
+    fn install(
+        &self,
+        pkg: &ScannedPackage,
+        scope: Scope,
+        config: Option<&crate::domain::config::ConfigFile>,
+    ) -> Result<()> {
+        let dest = self.asset_dir(&scope, &pkg.kind, &pkg.identity.name, config);
         copy_dir(&pkg.path, &dest)
     }
 
-    fn remove(&self, identity: &AssetIdentity, kind: &AssetKind, scope: Scope) -> Result<()> {
-        let dest = self.asset_dir(&scope, kind, &identity.name);
+    fn remove(
+        &self,
+        identity: &AssetIdentity,
+        kind: &AssetKind,
+        scope: Scope,
+        config: Option<&crate::domain::config::ConfigFile>,
+    ) -> Result<()> {
+        let dest = self.asset_dir(&scope, kind, &identity.name, config);
         common::remove_dir_and_prune_empty_parents(&dest, 2)?;
         Ok(())
     }
@@ -89,7 +117,14 @@ impl ProviderPort for GeminiProvider {
         if *kind == AssetKind::McpServer {
             return None;
         }
-        Some(self.asset_dir(&scope, kind, &identity.name))
+        Some(self.asset_dir(&scope, kind, &identity.name, None))
+    }
+
+    fn available_config_roots(&self) -> Vec<(String, String)> {
+        vec![
+            (".gemini".to_string(), "Gemini native folder".to_string()),
+            (".ai".to_string(), "Legacy .ai folder".to_string()),
+        ]
     }
 }
 
@@ -104,7 +139,7 @@ impl McpProvider for GeminiProvider {
 
     fn mcp_config_path(&self, scope: Scope) -> Option<PathBuf> {
         match scope {
-            Scope::Global => Some(self.provider_root(&scope).join("settings.json")),
+            Scope::Global => Some(self.provider_root(&scope, None).join("settings.json")),
             Scope::Workspace => None,
         }
     }
@@ -142,5 +177,23 @@ impl McpProvider for GeminiProvider {
             servers.remove(name);
         }
         self.save_mcp_config(&scope, &config)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::config::ConfigFile;
+
+    #[test]
+    fn gemini_provider_root_uses_config_override() {
+        let dir = tempfile::tempdir().unwrap();
+        let provider = GeminiProvider::new(dir.path().to_path_buf());
+        let mut config = ConfigFile::default();
+        config
+            .provider_roots
+            .insert("gemini-cli".to_string(), ".ai".to_string());
+        let root = provider.provider_root(&Scope::Workspace, Some(&config));
+        assert_eq!(root, dir.path().join(".ai"));
     }
 }
