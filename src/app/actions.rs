@@ -1,6 +1,6 @@
 use crate::app::ports::{ConfigStorePort, ProviderPort};
 use crate::domain::asset::{AssetKind, ScannedPackage};
-use crate::domain::config::{AssetBucket, VaultConfig};
+use crate::domain::config::{AssetBucket, ConfigFile, VaultConfig};
 use crate::domain::identity::AssetIdentity;
 use crate::domain::scope::Scope;
 use anyhow::{bail, Result};
@@ -67,6 +67,7 @@ pub fn remove_asset(
             &AssetKind::McpServer => {}
         }
     }
+    prune_empty_vault_defs(&mut config);
     store.save(scope, &config)
 }
 
@@ -165,6 +166,24 @@ pub fn remove_provider(scope: Scope, provider_id: &str, store: &dyn ConfigStoreP
     let mut config = store.load(scope)?;
     config.providers.retain(|p| p != provider_id);
     store.save(scope, &config)
+}
+
+/// Remove empty vault sections / asset buckets so the TOML stays clean.
+pub fn prune_empty_vault_defs(config: &mut ConfigFile) {
+    config.vault_defs.retain(|_id, section| {
+        let has_vault = section.vault.is_some();
+        let has_skills = section
+            .skills
+            .as_ref()
+            .map(|b| !b.items.is_empty())
+            .unwrap_or(false);
+        let has_instructions = section
+            .instructions
+            .as_ref()
+            .map(|b| !b.items.is_empty())
+            .unwrap_or(false);
+        has_vault || has_skills || has_instructions
+    });
 }
 
 #[cfg(test)]
@@ -423,5 +442,79 @@ mod tests {
         assert!(loaded.vaults.is_empty());
         // vault_defs preserved because assets are still installed
         assert!(loaded.vault_defs.contains_key("workspace"));
+    }
+
+    #[test]
+    fn remove_asset_prunes_empty_section() {
+        let store = FakeStore::default();
+        let provider = FakeProvider::new();
+        let mut config = ConfigFile::default();
+        config.providers = vec!["fake".to_string()];
+        config.vault_defs.insert(
+            "workspace".to_string(),
+            VaultSection {
+                vault: None,
+                skills: Some(AssetBucket {
+                    items: vec!["[my-skill:--:0000000000]".to_string()],
+                }),
+                instructions: None,
+            },
+        );
+        store.save(Scope::Workspace, &config).unwrap();
+
+        let identity = AssetIdentity::new("my-skill", None, "0000000000");
+        remove_asset(
+            Scope::Workspace,
+            &identity,
+            &AssetKind::Skill,
+            "workspace",
+            &store,
+            &provider,
+        )
+        .unwrap();
+
+        let loaded = store.load(Scope::Workspace).unwrap();
+        assert!(loaded.vault_defs.is_empty());
+    }
+
+    #[test]
+    fn prune_empty_vault_defs_keeps_nonempty() {
+        let mut config = ConfigFile::default();
+        config.vault_defs.insert(
+            "a".to_string(),
+            VaultSection {
+                vault: Some(VaultConfig::Local(
+                    crate::domain::config::LocalVaultSource {
+                        path: "/tmp".into(),
+                    },
+                )),
+                skills: None,
+                instructions: None,
+            },
+        );
+        config.vault_defs.insert(
+            "b".to_string(),
+            VaultSection {
+                vault: None,
+                skills: Some(AssetBucket { items: vec![] }),
+                instructions: None,
+            },
+        );
+        config.vault_defs.insert(
+            "c".to_string(),
+            VaultSection {
+                vault: None,
+                skills: None,
+                instructions: Some(AssetBucket {
+                    items: vec!["[i:--:0000000000]".to_string()],
+                }),
+            },
+        );
+
+        prune_empty_vault_defs(&mut config);
+
+        assert!(config.vault_defs.contains_key("a"));
+        assert!(!config.vault_defs.contains_key("b"));
+        assert!(config.vault_defs.contains_key("c"));
     }
 }

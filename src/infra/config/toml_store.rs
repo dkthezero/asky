@@ -64,6 +64,18 @@ impl ConfigStorePort for TomlConfigStore {
         std::fs::write(path, content)?;
         Ok(())
     }
+
+    fn delete_file(&self, scope: Scope) -> Result<()> {
+        let _guard = self
+            .lock
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Lock poisoned: {}", e))?;
+        let path = self.path_for(scope);
+        if path.exists() {
+            std::fs::remove_file(path)?;
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

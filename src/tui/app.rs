@@ -19,8 +19,10 @@ pub enum ListMode {
     AttachVault,
     AttachVaultBranch,
     AttachVaultPath,
+    AttachVaultName,
     ConfirmDetachVault,
     ConfirmClawHubInstall,
+    ConfirmDeactivateLastProvider,
     /// MCP server registration modal sub-steps
     RegisterMcpStepName,
     RegisterMcpStepCommand,
@@ -73,6 +75,8 @@ pub struct AppState {
     pub pending_vault_repo: String,
     pub pending_vault_ref: String,
     pub pending_vault_path: String,
+    pub pending_vault_local_path: String,
+    pub pending_deactivate_provider_id: String,
     pub esc_pressed_once: bool,
     pub remote_packages: Vec<ScannedPackage>,
     pub clawhub_search_task_id: Option<usize>,
@@ -118,6 +122,8 @@ impl AppState {
             pending_vault_repo: String::new(),
             pending_vault_ref: String::new(),
             pending_vault_path: String::new(),
+            pending_vault_local_path: String::new(),
+            pending_deactivate_provider_id: String::new(),
             esc_pressed_once: false,
             remote_packages: Vec::new(),
             clawhub_search_task_id: None,
@@ -236,7 +242,10 @@ impl AppState {
     pub fn is_attach_vault_mode(&self) -> bool {
         matches!(
             self.list_mode,
-            ListMode::AttachVault | ListMode::AttachVaultBranch | ListMode::AttachVaultPath
+            ListMode::AttachVault
+                | ListMode::AttachVaultBranch
+                | ListMode::AttachVaultPath
+                | ListMode::AttachVaultName
         )
     }
 

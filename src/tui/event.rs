@@ -97,6 +97,7 @@ pub fn handle(
             ListMode::ConfirmMcpTest
                 | ListMode::ConfirmClawHubInstall
                 | ListMode::ConfirmDetachVault
+                | ListMode::ConfirmDeactivateLastProvider
         );
 
         match &key.code {
@@ -106,48 +107,33 @@ pub fn handle(
                     return handle_clawhub_install_confirm(state, ctx)
                 }
                 ListMode::ConfirmDetachVault => return handle_detach_confirm(state, ctx),
+                ListMode::ConfirmDeactivateLastProvider => {
+                    return handle_deactivate_last_provider_confirm(state, ctx)
+                }
                 _ => {}
             },
-            KeyCode::Char('y') | KeyCode::Char('Y')
-                if state.list_mode == ListMode::ConfirmMcpTest =>
-            {
-                return handle_mcp_register_confirm(state, ctx);
-            }
-            KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc
-                if state.list_mode == ListMode::ConfirmMcpTest =>
-            {
+            KeyCode::Esc if state.list_mode == ListMode::ConfirmMcpTest => {
                 state.list_mode = ListMode::Normal;
                 state.status_line = "Cancelled MCP registration".to_string();
                 return Ok(ControlFlow::Continue);
             }
-            KeyCode::Char('y') | KeyCode::Char('Y')
-                if state.list_mode == ListMode::ConfirmClawHubInstall =>
-            {
-                return handle_clawhub_install_confirm(state, ctx);
-            }
-            KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc
-                if state.list_mode == ListMode::ConfirmClawHubInstall =>
-            {
+            KeyCode::Esc if state.list_mode == ListMode::ConfirmClawHubInstall => {
                 state.list_mode = ListMode::Normal;
                 state.status_line = "Cancelled ClawHub CLI install".to_string();
                 return Ok(ControlFlow::Continue);
             }
-            KeyCode::Char('y') | KeyCode::Char('Y')
-                if state.list_mode == ListMode::ConfirmDetachVault =>
-            {
-                return handle_detach_confirm(state, ctx);
-            }
-            KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc
-                if state.list_mode == ListMode::ConfirmDetachVault =>
-            {
+            KeyCode::Esc if state.list_mode == ListMode::ConfirmDetachVault => {
                 return handle_detach_cancel(state);
+            }
+            KeyCode::Esc if state.list_mode == ListMode::ConfirmDeactivateLastProvider => {
+                return handle_deactivate_last_provider_cancel(state);
             }
             KeyCode::Char('0') if state.list_mode == ListMode::Normal => {
                 // [0] is always the right-aligned Vault tab (last index)
                 let vault_idx = state.tab_names.len().saturating_sub(1);
                 apply_tab_switch(state, vault_idx, state.tab_names.len());
             }
-            KeyCode::Char(c @ '1'..='5') if state.list_mode == ListMode::Normal => {
+            KeyCode::Char(c @ '1'..='4') if state.list_mode == ListMode::Normal => {
                 let idx = (*c as usize) - ('1' as usize);
                 apply_tab_switch(state, idx, state.tab_names.len());
             }
@@ -289,6 +275,110 @@ fn handle_detach_cancel(state: &mut AppState) -> Result<ControlFlow> {
     Ok(ControlFlow::Continue)
 }
 
+fn handle_deactivate_last_provider_confirm(
+    state: &mut AppState,
+    ctx: &EventContext,
+) -> Result<ControlFlow> {
+    let provider_id = std::mem::take(&mut state.pending_deactivate_provider_id);
+    state.list_mode = ListMode::Normal;
+
+    let scope = state.active_scope;
+    let store = ctx.store.clone();
+    let tx = ctx.tx.clone();
+    let registry = ctx.registry.clone();
+
+    let id = crate::tui::app::NEXT_TASK_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    tokio::task::spawn_blocking(move || {
+        let _ = tx.send(AppEvent::TaskStarted {
+            id,
+            name: format!("Deactivating '{}'", provider_id),
+        });
+
+        let mut config = store.load(scope).unwrap_or_default();
+        if !config.providers.contains(&provider_id) {
+            let _ = tx.send(AppEvent::TaskFailed {
+                id,
+                error: "Provider already deactivated".into(),
+            });
+            return;
+        }
+
+        if let Ok(provider) = registry.get_provider(&provider_id) {
+            config.providers.retain(|p| p != &provider_id);
+
+            // Remove provider root so re-activation shows the config-folder popup again
+            config.provider_roots.remove(&provider_id);
+
+            // Remove installed assets from the provider's filesystem
+            for section in config.vault_defs.values() {
+                if let Some(ref skills) = section.skills {
+                    for item in &skills.items {
+                        if let Some(identity) = crate::domain::config::parse_identity(item) {
+                            let _ = provider.remove(
+                                &identity,
+                                &crate::domain::asset::AssetKind::Skill,
+                                scope,
+                                Some(&config),
+                            );
+                        }
+                    }
+                }
+                if let Some(ref instructions) = section.instructions {
+                    for item in &instructions.items {
+                        if let Some(identity) = crate::domain::config::parse_identity(item) {
+                            let _ = provider.remove(
+                                &identity,
+                                &crate::domain::asset::AssetKind::Instruction,
+                                scope,
+                                Some(&config),
+                            );
+                        }
+                    }
+                }
+            }
+
+            // Clear all installed assets
+            for section in config.vault_defs.values_mut() {
+                if let Some(ref mut b) = section.skills {
+                    b.items.clear();
+                }
+                if let Some(ref mut b) = section.instructions {
+                    b.items.clear();
+                }
+            }
+            crate::app::actions::prune_empty_vault_defs(&mut config);
+
+            // If the entire config is now default (empty), delete the file
+            if config == crate::domain::config::ConfigFile::default() {
+                if let Err(e) = store.delete_file(scope) {
+                    let _ = tx.send(AppEvent::TaskFailed {
+                        id,
+                        error: format!("Failed to delete empty config file: {}", e),
+                    });
+                    return;
+                }
+            } else {
+                let _ = store.save(scope, &config);
+            }
+        }
+
+        let _ = tx.send(AppEvent::TriggerReload);
+        let _ = tx.send(AppEvent::TaskCompleted {
+            id,
+            message: format!("Deactivated '{}'", provider_id),
+        });
+    });
+
+    Ok(ControlFlow::Continue)
+}
+
+fn handle_deactivate_last_provider_cancel(state: &mut AppState) -> Result<ControlFlow> {
+    state.list_mode = ListMode::Normal;
+    state.status_line = "Cancelled provider deactivation".to_string();
+    state.pending_deactivate_provider_id.clear();
+    Ok(ControlFlow::Continue)
+}
+
 fn handle_select_provider_root(
     state: &mut AppState,
     ctx: &EventContext,
@@ -392,16 +482,15 @@ fn handle_attach_vault_input(
                     state.list_mode = ListMode::AttachVaultBranch;
                     state.prompt_buffer = "main".to_string();
                 } else {
-                    state.list_mode = ListMode::Normal;
+                    state.pending_vault_local_path = input.clone();
                     let id = std::path::Path::new(&input)
                         .file_name()
                         .unwrap_or_default()
                         .to_string_lossy()
                         .into_owned();
-                    let vault_config = crate::domain::config::VaultConfig::Local(
-                        crate::domain::config::LocalVaultSource { path: input },
-                    );
-                    execute_attach_vault(ctx, id, vault_config);
+                    state.pending_vault_id = id;
+                    state.list_mode = ListMode::AttachVaultName;
+                    state.prompt_buffer.clone_from(&state.pending_vault_id);
                 }
             }
             ListMode::AttachVaultBranch => {
@@ -421,17 +510,37 @@ fn handle_attach_vault_input(
                 } else {
                     subfolder
                 };
-                state.list_mode = ListMode::Normal;
-
-                let id = state.pending_vault_id.clone();
-                let vault_config = crate::domain::config::VaultConfig::Github(
-                    crate::domain::config::GithubVaultSource {
-                        repo: state.pending_vault_repo.clone(),
-                        r#ref: state.pending_vault_ref.clone(),
-                        path: state.pending_vault_path.clone(),
-                    },
-                );
-                execute_attach_vault(ctx, id, vault_config);
+                state.list_mode = ListMode::AttachVaultName;
+                state.prompt_buffer.clone_from(&state.pending_vault_id);
+            }
+            ListMode::AttachVaultName => {
+                let name = std::mem::take(&mut state.prompt_buffer).trim().to_string();
+                if name.is_empty() {
+                    state.list_mode = ListMode::Normal;
+                    state.status_line = "Cancelled — empty vault name".to_string();
+                    state.pending_vault_local_path.clear();
+                } else {
+                    state.pending_vault_id = name.clone();
+                    state.list_mode = ListMode::Normal;
+                    if !state.pending_vault_local_path.is_empty() {
+                        let vault_config = crate::domain::config::VaultConfig::Local(
+                            crate::domain::config::LocalVaultSource {
+                                path: state.pending_vault_local_path.clone(),
+                            },
+                        );
+                        execute_attach_vault(ctx, name, vault_config);
+                        state.pending_vault_local_path.clear();
+                    } else {
+                        let vault_config = crate::domain::config::VaultConfig::Github(
+                            crate::domain::config::GithubVaultSource {
+                                repo: state.pending_vault_repo.clone(),
+                                r#ref: state.pending_vault_ref.clone(),
+                                path: state.pending_vault_path.clone(),
+                            },
+                        );
+                        execute_attach_vault(ctx, name, vault_config);
+                    }
+                }
             }
             _ => {}
         },
@@ -602,9 +711,7 @@ fn handle_esc(state: &mut AppState) -> Result<ControlFlow> {
 
 fn handle_backspace(state: &mut AppState) {
     let active_kind = state.tab_kinds.get(state.active_tab).copied();
-    if state.is_attach_vault_mode() {
-        state.prompt_buffer.pop();
-    } else if state.is_register_mcp_mode() {
+    if state.is_attach_vault_mode() || state.is_register_mcp_mode() {
         state.prompt_buffer.pop();
     } else if active_kind != Some(crate::tui::app::TabKind::Vault) {
         state.search_query.pop();
@@ -680,6 +787,30 @@ fn toggle_provider(state: &mut AppState, ctx: &EventContext) -> Result<ControlFl
             }
         }
 
+        // Check if deactivating the last provider with installed assets
+        let config = store.load(scope).unwrap_or_default();
+        let is_last_provider =
+            config.providers.len() == 1 && config.providers.contains(&provider_id);
+        let has_installed_assets = config.vault_defs.values().any(|section| {
+            section
+                .skills
+                .as_ref()
+                .map(|b| !b.items.is_empty())
+                .unwrap_or(false)
+                || section
+                    .instructions
+                    .as_ref()
+                    .map(|b| !b.items.is_empty())
+                    .unwrap_or(false)
+        });
+
+        if is_last_provider && has_installed_assets {
+            state.list_mode = ListMode::ConfirmDeactivateLastProvider;
+            state.pending_deactivate_provider_id = provider_id;
+            state.status_line.clear();
+            return Ok(ControlFlow::Continue);
+        }
+
         let id = crate::tui::app::NEXT_TASK_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         tokio::task::spawn_blocking(move || {
             let mut config = store.load(scope).unwrap_or_default();
@@ -691,12 +822,41 @@ fn toggle_provider(state: &mut AppState, ctx: &EventContext) -> Result<ControlFl
                 let total = installed_pkgs.len();
                 if let Ok(provider) = registry.get_provider(&provider_id) {
                     config.providers.retain(|p| p != &provider_id);
-                    let _ = store.save(scope, &config);
+
+                    // Also remove the provider root selection so re-activation shows the popup again
+                    config.provider_roots.remove(&provider_id);
 
                     for (i, pkg) in installed_pkgs.iter().enumerate() {
                         let _ = provider.remove(&pkg.identity, &pkg.kind, scope, Some(&config));
                         let percent = (((i + 1) as f32 / total.max(1) as f32) * 100.0) as u8;
                         let _ = tx.send(AppEvent::TaskProgress { id, percent });
+                    }
+
+                    // If no providers remain, clear all installed assets from config
+                    if config.providers.is_empty() {
+                        for section in config.vault_defs.values_mut() {
+                            if let Some(ref mut b) = section.skills {
+                                b.items.clear();
+                            }
+                            if let Some(ref mut b) = section.instructions {
+                                b.items.clear();
+                            }
+                        }
+                        crate::app::actions::prune_empty_vault_defs(&mut config);
+
+                        if config == crate::domain::config::ConfigFile::default() {
+                            if let Err(e) = store.delete_file(scope) {
+                                let _ = tx.send(AppEvent::TaskFailed {
+                                    id,
+                                    error: format!("Failed to delete empty config file: {}", e),
+                                });
+                                return;
+                            }
+                        } else {
+                            let _ = store.save(scope, &config);
+                        }
+                    } else {
+                        let _ = store.save(scope, &config);
                     }
                 }
                 let _ = tx.send(AppEvent::TriggerReload);
@@ -1644,6 +1804,65 @@ mod tests {
         ) -> Result<()> {
             Ok(())
         }
+    }
+
+    #[test]
+    fn toggle_provider_shows_confirm_popup_when_last_provider_has_assets() {
+        let mut state = empty_state(5);
+        state.tab_kinds = vec![
+            crate::tui::app::TabKind::Asset,    // Skills
+            crate::tui::app::TabKind::Mcp,      // MCP
+            crate::tui::app::TabKind::Asset,    // Instructions
+            crate::tui::app::TabKind::Provider, // Providers
+            crate::tui::app::TabKind::Vault,    // Vaults
+        ];
+        state.active_tab = 3; // Providers tab
+        state.provider_entries = vec![crate::domain::asset::ProviderEntry {
+            id: "fake".to_string(),
+            name: "Fake".to_string(),
+            active: true,
+        }];
+
+        let mut config = ConfigFile::default();
+        config.providers = vec!["fake".to_string()];
+        config.vault_defs.insert(
+            "workspace".to_string(),
+            crate::domain::config::VaultSection {
+                vault: None,
+                skills: Some(crate::domain::config::AssetBucket {
+                    items: vec!["[my-skill:--:0000000000]".to_string()],
+                }),
+                instructions: None,
+            },
+        );
+        state.configs.insert(Scope::Workspace, config.clone());
+
+        let (tx, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut registry = crate::app::registry::Registry::new();
+        registry.register_provider(Box::new(FakeProvider { id: "fake".into() }));
+        let registry = Arc::new(registry);
+
+        let store = Arc::new(FakeStore::new(config));
+        let ctx = EventContext {
+            store,
+            registry,
+            tx,
+            workspace_root: std::path::PathBuf::from("."),
+        };
+
+        let event = crossterm::event::Event::Key(crossterm::event::KeyEvent::new(
+            KeyCode::Char(' '),
+            KeyModifiers::empty(),
+        ));
+        let res = handle(&mut state, &ctx, event).unwrap();
+
+        assert!(matches!(res, ControlFlow::Continue));
+        assert_eq!(
+            state.list_mode,
+            ListMode::ConfirmDeactivateLastProvider,
+            "Expected confirm popup when deactivating last provider with installed assets"
+        );
+        assert_eq!(state.pending_deactivate_provider_id, "fake");
     }
 
     #[tokio::test]

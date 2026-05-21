@@ -33,17 +33,12 @@ pub fn build_with_store(
     let mut registry = Registry::new();
 
     // Feature sets — order defines tab order
-    // Data: [0] Skills, [1] MCP, [2] Instructions, [3] Providers, [4] Runs&Logs, [5] Vault
-    // Rendered: [1] Skills [2] MCP [3] Instructions [4] Providers [5] Runs&Logs    [0] Vault
+    // Data: [0] Skills, [1] MCP, [2] Instructions, [3] Providers, [4] Vault
+    // Rendered: [1] Skills [2] MCP [3] Instructions [4] Providers    [0] Vault
     registry.register_feature_set(Box::new(SkillFeatureSet));
     registry.register_feature_set(Box::new(StubFeatureSet::new("mcp", "MCP Servers", "")));
     registry.register_feature_set(Box::new(InstructionFeatureSet));
     registry.register_feature_set(Box::new(StubFeatureSet::new("provider", "Providers", "")));
-    registry.register_feature_set(Box::new(StubFeatureSet::new(
-        "runs_and_logs",
-        "Telemetry",
-        "",
-    )));
     registry.register_feature_set(Box::new(StubFeatureSet::new("vault", "Vaults", "")));
 
     // Extract dynamic vaults from configurations
@@ -332,7 +327,6 @@ pub fn build_tab_kinds(registry: &Registry) -> Vec<TabKind> {
             "vault" => TabKind::Vault,
             "provider" => TabKind::Provider,
             "mcp" => TabKind::Mcp,
-            "runs_and_logs" => TabKind::Analytics,
             _ => TabKind::Asset,
         })
         .collect()
@@ -349,10 +343,10 @@ mod tests {
     }
 
     #[test]
-    fn bootstrap_produces_six_tabs() {
+    fn bootstrap_produces_five_tabs() {
         let dir = tempfile::tempdir().unwrap();
         let (registry, _, _store) = build(dir.path().to_path_buf()).unwrap();
-        assert_eq!(registry.feature_sets.len(), 6);
+        assert_eq!(registry.feature_sets.len(), 5);
     }
 
     #[test]

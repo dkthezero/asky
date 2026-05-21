@@ -23,12 +23,16 @@ pub fn render(
         String::new()
     };
 
-    let line1 = Line::from(
+    let line_spans: Vec<Span> = if keybinds.is_empty() {
+        vec![Span::styled(scope_label, Style::default().fg(Color::Green))]
+    } else {
         std::iter::once(Span::styled(scope_label, Style::default().fg(Color::Green)))
             .chain(std::iter::once(Span::raw("  ")))
             .chain(color_keybinds(keybinds))
-            .collect::<Vec<_>>(),
-    );
+            .collect()
+    };
+
+    let line1 = Line::from(line_spans);
 
     let row_layout = ratatui::layout::Layout::default()
         .direction(ratatui::layout::Direction::Vertical)

@@ -1,6 +1,6 @@
 use crate::tui::app::{AppState, ListMode};
 use crate::tui::layout;
-use crate::tui::widgets::{analytics, detail, list, mcp, modal, status, tabs};
+use crate::tui::widgets::{detail, list, mcp, modal, status, tabs};
 use ratatui::{
     style::{Color, Modifier, Style},
     text::Line,
@@ -17,7 +17,7 @@ pub fn draw(frame: &mut Frame, state: &AppState) {
     } else {
         format!("  [ Search: {} ]", state.search_query)
     };
-    let header_text = format!("agk v0.2.5{}", search_hint);
+    let header_text = format!("agk v0.2.6{}", search_hint);
     frame.render_widget(
         Paragraph::new(Line::from(header_text)).style(
             Style::default()
@@ -107,20 +107,8 @@ pub fn draw(frame: &mut Frame, state: &AppState) {
             mcp::render::render_detail(frame, detail_area, &state.mcp_state, state.selected_index);
         }
         TabKind::Analytics => {
-            let list_area = layout.list;
-            let detail_area = layout.detail;
-            analytics::render(
-                frame,
-                list_area,
-                &state.analytics_config,
-                state.selected_index,
-            );
-            analytics::render_detail(
-                frame,
-                detail_area,
-                &state.analytics_config,
-                state.selected_index,
-            );
+            // Telemetry tab is hidden from the UI but the data structure still exists
+            // so the match stays exhaustive. Nothing renders.
         }
     }
     let keybinds = if matches!(state.list_mode, ListMode::SelectProviderRoot { .. }) {
@@ -129,9 +117,12 @@ pub fn draw(frame: &mut Frame, state: &AppState) {
         "[Enter] Confirm  [Esc] Cancel"
     } else if matches!(
         state.list_mode,
-        ListMode::ConfirmMcpTest | ListMode::ConfirmClawHubInstall | ListMode::ConfirmDetachVault
+        ListMode::ConfirmMcpTest
+            | ListMode::ConfirmClawHubInstall
+            | ListMode::ConfirmDetachVault
+            | ListMode::ConfirmDeactivateLastProvider
     ) {
-        "[y] Yes  [n] No  [Enter] Confirm  [Esc] Cancel"
+        ""
     } else {
         match active_kind {
             TabKind::Asset => {
@@ -143,12 +134,10 @@ pub fn draw(frame: &mut Frame, state: &AppState) {
             TabKind::Mcp => {
                 "[↑/↓] Move  [F2] Add MCP  [Space] Enable  [Enter] Test  [Esc]x2 Quit"
             }
-            TabKind::Analytics => {
-                "[↑/↓] Move  [F5] Refresh  [Esc]x2 Quit"
-            }
             TabKind::Vault => {
                 "[↑/↓] Move  [F2] Attach New  [Space] Toggle  [F4] Refresh  [Esc]x2 Quit"
             }
+            TabKind::Analytics => "",
         }
     };
 
@@ -201,6 +190,9 @@ pub fn draw(frame: &mut Frame, state: &AppState) {
                 &state.prompt_buffer,
             );
         }
+        ListMode::AttachVaultName => {
+            modal::render_input_modal(frame, "Attach Vault", "Vault name:", &state.prompt_buffer);
+        }
         ListMode::RegisterMcpStepName => {
             modal::render_input_modal(frame, "Register MCP Server", "Name:", &state.prompt_buffer);
         }
@@ -241,21 +233,46 @@ pub fn draw(frame: &mut Frame, state: &AppState) {
                 "WARNING: This will execute '{} {}' on your machine.\nProceed?",
                 state.pending_mcp_command, state.pending_mcp_args
             );
-            modal::render_confirm_modal(frame, "Confirm MCP Registration", &msg);
+            modal::render_confirm_modal(
+                frame,
+                "Confirm MCP Registration",
+                &msg,
+                "[Enter] Confirm  [Esc] Cancel",
+            );
         }
         ListMode::ConfirmClawHubInstall => {
             modal::render_confirm_modal(
                 frame,
                 "Install ClawHub CLI",
                 "ClawHub CLI not found. Install via Homebrew?",
+                "[Enter] Confirm  [Esc] Cancel",
             );
         }
         ListMode::ConfirmDetachVault => {
             let msg = format!(
-                "Detach vault '{}'?\nThis will hide all its uninstalled skills.",
+                "Detach vault '{}'?
+This will hide all its uninstalled skills.",
                 state.pending_detach_vault.as_deref().unwrap_or("")
             );
-            modal::render_confirm_modal(frame, "Detach Vault", &msg);
+            modal::render_confirm_modal(
+                frame,
+                "Detach Vault",
+                &msg,
+                "[Enter] Confirm  [Esc] Cancel",
+            );
+        }
+        ListMode::ConfirmDeactivateLastProvider => {
+            let msg = format!(
+                "Deactivate '{}'?
+This will remove all installed skills and leave no active provider.",
+                state.pending_deactivate_provider_id
+            );
+            modal::render_confirm_modal(
+                frame,
+                "Deactivate Last Provider",
+                &msg,
+                "[Enter] Confirm  [Esc] Cancel",
+            );
         }
         _ => {}
     }

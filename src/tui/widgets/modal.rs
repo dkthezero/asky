@@ -12,7 +12,7 @@ fn estimate_wrapped_lines(text: &str, width: u16) -> u16 {
     text.lines()
         .map(|line| {
             let len = line.chars().count() as u16;
-            (len + w - 1) / w
+            len.div_ceil(w)
         })
         .sum::<u16>()
         .max(1)
@@ -96,14 +96,56 @@ pub fn render_input_modal(frame: &mut Frame, title: &str, label: &str, value: &s
     frame.render_widget(paragraph, inner);
 }
 
-/// Render a centered confirmation modal with a title and message.
-/// Shows `[y] Yes  [n] No  [Esc] Cancel` implicitly through the footer.
-pub fn render_confirm_modal(frame: &mut Frame, title: &str, message: &str) {
+/// Parse a keybinds string like "[Enter] Confirm  [Esc] Cancel" into colored spans.
+/// Keys (inside `[]`) are shown in Cyan; everything else is DarkGray.
+fn color_keys(input: &str) -> Vec<Span<'_>> {
+    let mut spans = Vec::new();
+    let mut current = String::new();
+    let mut in_bracket = false;
+
+    for ch in input.chars() {
+        if ch == '[' && !in_bracket {
+            if !current.is_empty() {
+                spans.push(Span::styled(
+                    current.clone(),
+                    Style::default().fg(Color::DarkGray),
+                ));
+                current.clear();
+            }
+            in_bracket = true;
+            current.push(ch);
+        } else if ch == ']' && in_bracket {
+            current.push(ch);
+            spans.push(Span::styled(
+                current.clone(),
+                Style::default().fg(Color::Cyan),
+            ));
+            current.clear();
+            in_bracket = false;
+        } else {
+            current.push(ch);
+        }
+    }
+    if !current.is_empty() {
+        let color = if in_bracket {
+            Color::Cyan
+        } else {
+            Color::DarkGray
+        };
+        spans.push(Span::styled(current, Style::default().fg(color)));
+    }
+    spans
+}
+
+/// Render a centered confirmation modal with a title, message, and action hints.
+/// Actions are pinned to the bottom and keys inside `[]` are colored Cyan.
+pub fn render_confirm_modal(frame: &mut Frame, title: &str, message: &str, actions: &str) {
     let area = frame.area();
     let width = (area.width as f32 * 0.6).clamp(30.0, 70.0) as u16;
-    let inner_width = width.saturating_sub(4); // subtract borders + margin
+    let inner_width = width.saturating_sub(4); // borders + margin
     let msg_lines = estimate_wrapped_lines(message, inner_width.max(1));
-    let height = (msg_lines + 5).min(area.height.saturating_sub(4));
+    let action_lines = estimate_wrapped_lines(actions, inner_width.max(1));
+    let height = (msg_lines + action_lines + 5).min(area.height.saturating_sub(4));
     let popup = centered_rect(width, height, area);
 
     frame.render_widget(Clear, popup);
@@ -113,13 +155,25 @@ pub fn render_confirm_modal(frame: &mut Frame, title: &str, message: &str) {
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Yellow));
 
+    // Compute inner area before rendering the block so we can use it for layout
     let inner = block.inner(popup).inner(Margin::new(1, 1));
+
     frame.render_widget(block, popup);
 
-    let paragraph = Paragraph::new(message)
+    // Split vertically: message on top (flexible), actions at bottom
+    let vertical = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(1), Constraint::Length(action_lines + 1)])
+        .split(inner);
+
+    let msg_paragraph = Paragraph::new(message)
         .alignment(Alignment::Left)
         .wrap(Wrap { trim: true });
-    frame.render_widget(paragraph, inner);
+    frame.render_widget(msg_paragraph, vertical[0]);
+
+    let action_line = Line::from(color_keys(actions));
+    let action_paragraph = Paragraph::new(action_line).alignment(Alignment::Left);
+    frame.render_widget(action_paragraph, vertical[1]);
 }
 
 fn centered_rect(width: u16, height: u16, r: Rect) -> Rect {

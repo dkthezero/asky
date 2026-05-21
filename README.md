@@ -16,10 +16,11 @@ Manage vaults of reusable skills and instructions, then install them to Claude C
 - **Headless mode** — All operations available as CLI commands with `--json`, `--quiet`, and deterministic exit codes for CI/CD
 - **MCP server registry** — Register, test, and enable MCP servers (Claude Code, OpenCode, and more) with a JSON-RPC handshake
 - **Skill bundling** — Meta-skills with `requires:` in `SKILL.md` frontmatter auto-install dependency trees
-- **Telemetry (local-only)** — Track which skills your team actually uses. Data stays on your machine; enabled by default, opt-out anytime
 - **Change detection** — SHA-based hashing detects when vault assets have been updated
 - **Scoped configuration** — Global settings for vaults, workspace-level settings for providers and installed assets
-- **Batch operations** — Update all installed assets at once with F5
+- **Batch operations** — Update all installed assets at once with `F5`
+- **Smart provider lifecycle** — Deactivating the last provider prompts before wiping installed assets; re-activating a provider re-opens the config-folder selector
+- **Clean config management** — Empty vault sections and arrays are auto-pruned from TOML; empty configs are removed entirely
 
 ## Installation
 
@@ -53,7 +54,9 @@ agk
 1. Press `0` to switch to the Vaults tab
 2. Press `F2` to attach a new vault
 3. Enter a local path (`./my-vault`) or GitHub URL (`owner/repo`)
-4. Follow the prompts for branch and subfolder
+4. Follow the prompts for branch, subfolder, and vault name
+   - GitHub URLs ask for branch and subfolder first
+   - All paths ask for a custom vault name (defaults to folder or repo name)
 
 ### Browse & install from ClawHub
 
@@ -75,6 +78,8 @@ agk
 
 1. Press `4` to switch to the Providers tab
 2. Press `Space` to toggle providers on/off
+3. When deactivating the **last** provider with installed assets, agk shows a confirmation popup to prevent accidental data loss
+4. Re-activating a provider always re-opens the config-folder selector
 
 ### Register an MCP server
 
@@ -84,17 +89,11 @@ agk
 4. Confirm the security warning — agk will tell you exactly what it'll execute on your machine
 5. agk auto-runs the MCP `initialize` handshake test. If it passes, the server appears in the list with `[✓]`
 
-### Check what your team uses
-
-1. Press `5` to switch to the Telemetry tab
-2. See which skills were invoked, when, and how often — all from local log files on your machine
-3. Older entries dim automatically, so you can spot stale skills at a glance
-
 ## Keybindings
 
 | Key | Action |
 |-----|--------|
-| `1`–`5` | Skills, MCP Servers, Instructions, Providers, Telemetry |
+| `1`–`4` | Skills, MCP Servers, Instructions, Providers |
 | `0` | Vaults tab |
 | `Up/Down` | Navigate list |
 | `Space` | Install/uninstall asset, toggle provider/vault/MCP |
@@ -157,15 +156,14 @@ agk uses two configuration scopes:
 
 | Scope | Path | Purpose |
 |-------|------|---------|
-| Global | `~/.config/agk/config.toml` | Vaults, enabled providers, telemetry settings |
+| Global | `~/.config/agk/config.toml` | Vaults, enabled providers |
 | Workspace | `.agk/config.toml` | Installed assets per workspace |
 
-MCP servers and telemetry data are stored separately:
+MCP servers are stored separately:
 
 | File | Purpose |
 |------|---------|
 | `~/.config/agk/mcp.toml` | Registered MCP servers with activation state per provider |
-| `~/.config/agk/analytics.toml` | Telemetry data (local-only, never transmitted) |
 
 ### Clean up
 
@@ -211,9 +209,6 @@ agk mcp add --name fs --command npx \
 
 # Enable MCP for a provider
 agk mcp enable fs --provider claude-code --scope workspace
-
-# Check telemetry status
-agk telemetry status
 ```
 
 All commands support `--quiet`, `--verbose`, and `--json`.
